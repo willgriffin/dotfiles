@@ -131,6 +131,27 @@ install_zoxide() {
 }
 
 # ==============================================================================
+# AI CLI Tools
+# ==============================================================================
+install_claude_code() {
+    if [[ -x "$HOME/.claude/local/claude" ]] || command -v claude &> /dev/null; then
+        echo "Claude Code already installed"
+        return 0
+    fi
+    echo "Installing Claude Code..."
+    curl -fsSL https://claude.ai/install.sh | bash
+}
+
+install_gemini_cli() {
+    if command -v gemini &> /dev/null; then
+        echo "Gemini CLI already installed"
+        return 0
+    fi
+    echo "Installing Gemini CLI..."
+    npm install -g @google/gemini-cli
+}
+
+# ==============================================================================
 # Stow Packages
 # ==============================================================================
 stow_packages() {
@@ -148,9 +169,8 @@ stow_packages() {
     for pkg in "${packages[@]}"; do
         if [[ -d "$pkg" ]]; then
             echo "  Stowing $pkg..."
-            stow -v --restow --target="$HOME" "$pkg" 2>/dev/null || {
-                echo "  Warning: Could not stow $pkg (file conflict?)"
-            }
+            # --adopt takes ownership of existing files, --restow re-links
+            stow -v --adopt --restow --target="$HOME" "$pkg" 2>&1 | grep -v "^LINK:" || true
         fi
     done
 }
@@ -232,6 +252,11 @@ main() {
 
     # Install packages
     install_packages
+    echo
+
+    # Install AI CLI tools
+    install_claude_code
+    install_gemini_cli
     echo
 
     # Backup existing configs
