@@ -75,8 +75,8 @@ alias repomix="npx repomix"
 alias claude-flow="npx claude-flow@alpha"
 alias codebuff="npx codebuff"
 
-# Claude command (local installation)
-alias claude="~/.claude/local/claude"
+# Claude command - ~/.local/bin should be in PATH, but alias ensures it works
+alias claude="~/.local/bin/claude"
 
 # Platform-specific rebuild command
 if [[ "$PLATFORM" == "macos" ]]; then
