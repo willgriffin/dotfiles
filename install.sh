@@ -103,6 +103,9 @@ install_packages() {
                     sudo pacman -S --noconfirm zsh-autosuggestions zsh-syntax-highlighting 2>/dev/null || true
                     sudo pacman -S --noconfirm starship zoxide fzf bat eza ripgrep fd jq direnv 2>/dev/null || true
                     ;;
+                nixos)
+                    echo "NixOS detected - packages managed by Nix, skipping system package installation"
+                    ;;
                 *)
                     echo "Warning: Unknown distro $DISTRO - installing core packages only"
                     echo "Please manually install: ${optional_packages[*]}"
@@ -155,6 +158,12 @@ install_gemini_cli() {
 # Stow Packages
 # ==============================================================================
 stow_packages() {
+    # Skip stowing on NixOS - home-manager manages symlinks via mkOutOfStoreSymlink
+    if [[ "$DISTRO" == "nixos" ]]; then
+        echo "NixOS detected - symlinks managed by home-manager, skipping stow"
+        return 0
+    fi
+
     cd "$DOTFILES_DIR"
 
     local packages=(
@@ -179,6 +188,11 @@ stow_packages() {
 # Backup Existing Configs
 # ==============================================================================
 backup_existing() {
+    # Skip on NixOS - home-manager manages configs
+    if [[ "$DISTRO" == "nixos" ]]; then
+        return 0
+    fi
+
     local backup_dir="$HOME/.dotfiles-backup-$(date +%Y%m%d-%H%M%S)"
     local need_backup=false
 
@@ -218,6 +232,11 @@ backup_existing() {
 # Set Default Shell
 # ==============================================================================
 set_default_shell() {
+    # Skip on NixOS - shell configured in system config
+    if [[ "$DISTRO" == "nixos" ]]; then
+        return 0
+    fi
+
     local zsh_path
     zsh_path=$(which zsh)
 
