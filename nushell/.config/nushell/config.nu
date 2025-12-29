@@ -45,7 +45,14 @@ def rebuild [] {
 # Dotfiles management
 def update-home [] {
     cd ($env.HOME | path join "Work/willgriffin/repos/dotfiles")
-    stow --restow zsh bash git nushell
+    git pull
+    if ("/etc/os-release" | path exists) and (open /etc/os-release | str contains "ID=nixos") {
+        # NixOS: run install script (handles AI tools, skips stow)
+        bash ./install.sh
+    } else {
+        # Non-NixOS: use stow
+        stow --restow zsh bash git nushell
+    }
     cd -
 }
 

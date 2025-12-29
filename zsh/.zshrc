@@ -88,7 +88,13 @@ else
 fi
 
 # Dotfiles management
-alias update-home="cd $HOME/Work/willgriffin/repos/dotfiles && stow --restow zsh bash git nushell && cd - > /dev/null"
+if [[ -f /etc/os-release ]] && grep -q "^ID=nixos" /etc/os-release; then
+    # NixOS: just pull updates (home-manager manages symlinks)
+    alias update-home="cd $HOME/Work/willgriffin/repos/dotfiles && git pull && ./install.sh && cd - > /dev/null"
+else
+    # Non-NixOS: use stow
+    alias update-home="cd $HOME/Work/willgriffin/repos/dotfiles && git pull && stow --restow zsh bash git nushell && cd - > /dev/null"
+fi
 
 # ==============================================================================
 # Tool Initialization
