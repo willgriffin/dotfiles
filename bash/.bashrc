@@ -74,6 +74,9 @@ alias ga="git add"
 alias gc="git commit"
 alias gp="git push"
 
+# Dotfiles management
+alias update-home="cd $HOME/Work/willgriffin/repos/dotfiles && stow --restow zsh bash git nushell && cd - > /dev/null"
+
 # ==============================================================================
 # Local Overrides (machine-specific customizations)
 # ==============================================================================

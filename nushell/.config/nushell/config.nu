@@ -42,6 +42,13 @@ def rebuild [] {
     update
 }
 
+# Dotfiles management
+def update-home [] {
+    cd ($env.HOME | path join "Work/willgriffin/repos/dotfiles")
+    stow --restow zsh bash git nushell
+    cd -
+}
+
 # ==============================================================================
 # PATH Management
 # ==============================================================================

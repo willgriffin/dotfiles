@@ -87,6 +87,9 @@ else
     alias rebuild="sudo nixos-rebuild switch"
 fi
 
+# Dotfiles management
+alias update-home="cd $HOME/Work/willgriffin/repos/dotfiles && stow --restow zsh bash git nushell && cd - > /dev/null"
+
 # ==============================================================================
 # Tool Initialization
 # ==============================================================================
