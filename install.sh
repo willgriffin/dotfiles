@@ -56,6 +56,12 @@ install_packages() {
         jq            # json processor
     )
 
+    # Cloud CLI tools
+    local cloud_packages=(
+        gh            # GitHub CLI
+        awscli        # AWS CLI (awscli2 on some distros)
+    )
+
     case "$PLATFORM" in
         macos)
             if ! command -v brew &> /dev/null; then
@@ -69,6 +75,12 @@ install_packages() {
             echo "Installing optional packages..."
             brew install "${optional_packages[@]}" 2>/dev/null || true
 
+            # Cloud CLI tools
+            echo "Installing cloud CLI tools..."
+            brew install gh awscli 2>/dev/null || true
+            # gcloud via cask
+            brew install --cask google-cloud-sdk 2>/dev/null || true
+
             # Zsh plugins via Homebrew
             brew install zsh-autosuggestions zsh-syntax-highlighting 2>/dev/null || true
             ;;
@@ -79,29 +91,43 @@ install_packages() {
                     sudo apt-get install -y "${packages[@]}"
                     # Optional packages (some may not be in default repos)
                     sudo apt-get install -y zsh-autosuggestions zsh-syntax-highlighting 2>/dev/null || true
-                    sudo apt-get install -y fzf bat ripgrep fd-find jq 2>/dev/null || true
-                    # Starship, zoxide, eza need manual install on Debian/Ubuntu
+                    sudo apt-get install -y fzf bat ripgrep fd-find jq unzip 2>/dev/null || true
+                    # Starship, zoxide need manual install on Debian/Ubuntu
                     install_starship
                     install_zoxide
+                    # Cloud CLI tools
+                    install_gh
+                    install_awscli
+                    install_gcloud
                     ;;
                 fedora|rhel|centos)
                     sudo dnf install -y "${packages[@]}"
                     sudo dnf install -y zsh-autosuggestions zsh-syntax-highlighting 2>/dev/null || true
-                    sudo dnf install -y fzf bat ripgrep fd-find jq eza 2>/dev/null || true
+                    sudo dnf install -y fzf bat ripgrep fd-find jq eza unzip 2>/dev/null || true
                     install_starship
                     install_zoxide
+                    # Cloud CLI tools
+                    install_gh
+                    install_awscli
+                    install_gcloud
                     ;;
                 alpine)
                     sudo apk add "${packages[@]}"
                     sudo apk add zsh-autosuggestions zsh-syntax-highlighting 2>/dev/null || true
-                    sudo apk add fzf bat ripgrep fd jq 2>/dev/null || true
+                    sudo apk add fzf bat ripgrep fd jq unzip 2>/dev/null || true
                     install_starship
                     install_zoxide
+                    # Cloud CLI tools
+                    sudo apk add github-cli aws-cli 2>/dev/null || true
+                    install_gcloud
                     ;;
                 arch|manjaro)
                     sudo pacman -S --noconfirm "${packages[@]}"
                     sudo pacman -S --noconfirm zsh-autosuggestions zsh-syntax-highlighting 2>/dev/null || true
                     sudo pacman -S --noconfirm starship zoxide fzf bat eza ripgrep fd jq direnv 2>/dev/null || true
+                    # Cloud CLI tools
+                    sudo pacman -S --noconfirm github-cli aws-cli 2>/dev/null || true
+                    install_gcloud
                     ;;
                 nixos)
                     echo "NixOS detected - packages managed by Nix, skipping system package installation"
@@ -131,6 +157,52 @@ install_zoxide() {
     fi
     echo "Installing Zoxide..."
     curl -sS https://raw.githubusercontent.com/ajeetdsouza/zoxide/main/install.sh | bash
+}
+
+install_gcloud() {
+    if command -v gcloud &> /dev/null; then
+        echo "Google Cloud SDK already installed"
+        return 0
+    fi
+    echo "Installing Google Cloud SDK..."
+    curl -fsSL https://sdk.cloud.google.com | bash -s -- --disable-prompts --install-dir="$HOME"
+    # Add to path for current session
+    export PATH="$HOME/google-cloud-sdk/bin:$PATH"
+}
+
+install_awscli() {
+    if command -v aws &> /dev/null; then
+        echo "AWS CLI already installed"
+        return 0
+    fi
+    echo "Installing AWS CLI..."
+    if [[ "$PLATFORM" == "linux" ]]; then
+        curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "/tmp/awscliv2.zip"
+        unzip -q /tmp/awscliv2.zip -d /tmp
+        sudo /tmp/aws/install
+        rm -rf /tmp/awscliv2.zip /tmp/aws
+    fi
+}
+
+install_gh() {
+    if command -v gh &> /dev/null; then
+        echo "GitHub CLI already installed"
+        return 0
+    fi
+    echo "Installing GitHub CLI..."
+    case "$DISTRO" in
+        ubuntu|debian|pop)
+            curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+            echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+            sudo apt-get update && sudo apt-get install -y gh
+            ;;
+        fedora|rhel|centos)
+            sudo dnf install -y gh 2>/dev/null || true
+            ;;
+        *)
+            echo "Please install gh manually: https://cli.github.com/"
+            ;;
+    esac
 }
 
 # ==============================================================================
