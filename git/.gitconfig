@@ -1,0 +1,20 @@
+[user]
+    name = Will Griffin
+    email = willgriffin@gmail.com
+
+[init]
+    defaultBranch = main
+
+[push]
+    autoSetupRemote = true
+
+[pull]
+    rebase = false
+
+[core]
+    # Use delta for diffs if available, falls back to default
+    # pager = delta
+
+[include]
+    # Include local overrides (machine-specific settings like signing keys)
+    path = ~/.gitconfig.local

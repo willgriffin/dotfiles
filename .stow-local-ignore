@@ -1,0 +1,25 @@
+# Stow ignore file
+# Files matching these patterns won't be stowed
+
+# Git files
+\.git
+\.gitignore
+\.gitmodules
+
+# Documentation
+README.*
+LICENSE
+CHANGELOG.*
+
+# Scripts (not config files)
+install\.sh
+uninstall\.sh
+
+# Editor files
+\.vscode
+\.idea
+\*\.swp
+\*~
+
+# macOS
+\.DS_Store
