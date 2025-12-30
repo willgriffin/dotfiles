@@ -228,6 +228,15 @@ install_gemini_cli() {
     npm install -g @google/gemini-cli
 }
 
+install_oh_my_zsh() {
+    if [[ -d "$HOME/.oh-my-zsh" ]]; then
+        echo "Oh My Zsh already installed"
+        return 0
+    fi
+    echo "Installing Oh My Zsh..."
+    sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
+}
+
 # ==============================================================================
 # Stow Packages
 # ==============================================================================
@@ -350,6 +359,10 @@ main() {
     # Install AI CLI tools
     install_claude_code
     install_gemini_cli
+    echo
+
+    # Install Oh My Zsh
+    install_oh_my_zsh
     echo
 
     # Backup existing configs

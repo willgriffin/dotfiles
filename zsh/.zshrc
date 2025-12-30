@@ -1,4 +1,4 @@
-# ~/.zshrc - Portable Zsh Configuration
+# ~/.zshrc - Portable Zsh Configuration with Oh My Zsh
 # Managed by dotfiles repo, works on NixOS, macOS, Linux, and containers
 
 # ==============================================================================
@@ -11,34 +11,59 @@ case "$(uname -s)" in
 esac
 
 # ==============================================================================
-# Zsh Plugins (sourced from various possible locations)
+# Oh My Zsh Configuration
 # ==============================================================================
-# Autosuggestions
-for dir in \
-    "$HOME/.nix-profile/share/zsh-autosuggestions" \
-    "/run/current-system/sw/share/zsh-autosuggestions" \
-    "/usr/share/zsh/plugins/zsh-autosuggestions" \
-    "/usr/share/zsh-autosuggestions" \
-    "/opt/homebrew/share/zsh-autosuggestions" \
-    "/usr/local/share/zsh-autosuggestions"
-do
-    [[ -f "$dir/zsh-autosuggestions.zsh" ]] && source "$dir/zsh-autosuggestions.zsh" && break
-done
+export ZSH="$HOME/.oh-my-zsh"
 
-# Syntax Highlighting
-for dir in \
-    "$HOME/.nix-profile/share/zsh-syntax-highlighting" \
-    "/run/current-system/sw/share/zsh-syntax-highlighting" \
-    "/usr/share/zsh/plugins/zsh-syntax-highlighting" \
-    "/usr/share/zsh-syntax-highlighting" \
-    "/opt/homebrew/share/zsh-syntax-highlighting" \
-    "/usr/local/share/zsh-syntax-highlighting"
-do
-    [[ -f "$dir/zsh-syntax-highlighting.zsh" ]] && source "$dir/zsh-syntax-highlighting.zsh" && break
-done
+# Theme - use starship if available, otherwise robbyrussell
+if command -v starship &> /dev/null; then
+    ZSH_THEME=""  # Disable oh-my-zsh theme, use starship
+else
+    ZSH_THEME="robbyrussell"
+fi
 
-# Completion initialization
-autoload -Uz compinit && compinit
+# Plugins
+plugins=(
+    git
+    zsh-autosuggestions
+    zsh-syntax-highlighting
+    history
+    sudo
+    command-not-found
+)
+
+# Load Oh My Zsh (if installed)
+if [[ -f "$ZSH/oh-my-zsh.sh" ]]; then
+    source "$ZSH/oh-my-zsh.sh"
+else
+    # Fallback: manual plugin loading if oh-my-zsh not installed
+    # Autosuggestions
+    for dir in \
+        "$HOME/.nix-profile/share/zsh-autosuggestions" \
+        "/run/current-system/sw/share/zsh-autosuggestions" \
+        "/usr/share/zsh/plugins/zsh-autosuggestions" \
+        "/usr/share/zsh-autosuggestions" \
+        "/opt/homebrew/share/zsh-autosuggestions" \
+        "/usr/local/share/zsh-autosuggestions"
+    do
+        [[ -f "$dir/zsh-autosuggestions.zsh" ]] && source "$dir/zsh-autosuggestions.zsh" && break
+    done
+
+    # Syntax Highlighting
+    for dir in \
+        "$HOME/.nix-profile/share/zsh-syntax-highlighting" \
+        "/run/current-system/sw/share/zsh-syntax-highlighting" \
+        "/usr/share/zsh/plugins/zsh-syntax-highlighting" \
+        "/usr/share/zsh-syntax-highlighting" \
+        "/opt/homebrew/share/zsh-syntax-highlighting" \
+        "/usr/local/share/zsh-syntax-highlighting"
+    do
+        [[ -f "$dir/zsh-syntax-highlighting.zsh" ]] && source "$dir/zsh-syntax-highlighting.zsh" && break
+    done
+
+    # Completion initialization
+    autoload -Uz compinit && compinit
+fi
 
 # ==============================================================================
 # History Configuration
@@ -78,10 +103,8 @@ alias la="ls -la"
 alias ..="cd .."
 alias ...="cd ../.."
 
-# Git aliases
+# Git aliases (supplement oh-my-zsh git plugin)
 alias gs="git status"
-alias ga="git add"
-alias gc="git commit"
 alias gp="git push"
 alias gl="git log --oneline --graph"
 
