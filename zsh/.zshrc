@@ -41,6 +41,21 @@ done
 autoload -Uz compinit && compinit
 
 # ==============================================================================
+# History Configuration
+# ==============================================================================
+HISTFILE=~/.zsh_history
+HISTSIZE=50000
+SAVEHIST=50000
+setopt EXTENDED_HISTORY          # Write timestamps to history
+setopt HIST_EXPIRE_DUPS_FIRST    # Expire duplicate entries first
+setopt HIST_IGNORE_DUPS          # Don't record duplicates
+setopt HIST_IGNORE_SPACE         # Don't record entries starting with space
+setopt HIST_VERIFY               # Show command before executing from history
+setopt SHARE_HISTORY             # Share history between sessions
+setopt APPEND_HISTORY            # Append to history file
+setopt INC_APPEND_HISTORY        # Add commands as they are typed
+
+# ==============================================================================
 # PATH Setup
 # ==============================================================================
 # Add local bin to PATH (for locally installed tools like claude-code)
