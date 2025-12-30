@@ -224,8 +224,15 @@ install_gemini_cli() {
         echo "Gemini CLI already installed"
         return 0
     fi
+    # Check ~/.npm-global/bin as well (our custom prefix)
+    if [[ -x "$HOME/.npm-global/bin/gemini" ]]; then
+        echo "Gemini CLI already installed"
+        return 0
+    fi
     echo "Installing Gemini CLI..."
-    npm install -g @google/gemini-cli
+    # Use custom prefix to avoid read-only nix store issues
+    mkdir -p "$HOME/.npm-global"
+    npm install -g --prefix "$HOME/.npm-global" @google/gemini-cli
 }
 
 install_oh_my_zsh() {
