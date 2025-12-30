@@ -83,8 +83,8 @@ setopt INC_APPEND_HISTORY        # Add commands as they are typed
 # ==============================================================================
 # PATH Setup
 # ==============================================================================
-# Add local bin to PATH (for locally installed tools like claude-code)
-export PATH="$HOME/.local/bin:$PATH"
+# Add local bin and claude to PATH
+export PATH="$HOME/.local/bin:$HOME/.claude/local:$PATH"
 
 # Configure npm to use home directory for global packages (avoids read-only Nix store)
 export NPM_CONFIG_PREFIX="$HOME/.npm-global"
