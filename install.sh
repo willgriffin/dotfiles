@@ -231,30 +231,42 @@ install_gemini_cli() {
 install_oh_my_zsh() {
     if [[ -d "$HOME/.oh-my-zsh" ]]; then
         echo "Oh My Zsh already installed"
-        return 0
+    else
+        echo "Installing Oh My Zsh..."
+        # --unattended: don't change shell, --keep-zshrc: don't overwrite .zshrc
+        sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended --keep-zshrc
     fi
-    echo "Installing Oh My Zsh..."
-    sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
+
+    # Install oh-my-zsh plugins
+    local ZSH_CUSTOM="${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}"
+
+    if [[ ! -d "$ZSH_CUSTOM/plugins/zsh-autosuggestions" ]]; then
+        echo "Installing zsh-autosuggestions plugin..."
+        git clone https://github.com/zsh-users/zsh-autosuggestions "$ZSH_CUSTOM/plugins/zsh-autosuggestions"
+    fi
+
+    if [[ ! -d "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting" ]]; then
+        echo "Installing zsh-syntax-highlighting plugin..."
+        git clone https://github.com/zsh-users/zsh-syntax-highlighting "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting"
+    fi
 }
 
 # ==============================================================================
 # Stow Packages
 # ==============================================================================
 stow_packages() {
-    # Skip stowing on NixOS - home-manager manages symlinks via mkOutOfStoreSymlink
-    if [[ "$DISTRO" == "nixos" ]]; then
-        echo "NixOS detected - symlinks managed by home-manager, skipping stow"
-        return 0
-    fi
-
     cd "$DOTFILES_DIR"
 
     local packages=(
         "zsh"
         "bash"
-        "nushell"
         "git"
     )
+
+    # nushell managed by home-manager on NixOS
+    if [[ "$DISTRO" != "nixos" ]]; then
+        packages+=("nushell")
+    fi
 
     echo "Stowing dotfiles to home directory..."
 
@@ -271,10 +283,6 @@ stow_packages() {
 # Backup Existing Configs
 # ==============================================================================
 backup_existing() {
-    # Skip on NixOS - home-manager manages configs
-    if [[ "$DISTRO" == "nixos" ]]; then
-        return 0
-    fi
 
     local backup_dir="$HOME/.dotfiles-backup-$(date +%Y%m%d-%H%M%S)"
     local need_backup=false
