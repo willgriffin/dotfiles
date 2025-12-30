@@ -1,0 +1,15 @@
+# Starship Prompt Configuration
+# https://starship.rs/config/
+
+# Show hostname on all machines
+[hostname]
+ssh_only = false
+format = "[$hostname]($style) "
+style = "bold green"
+
+# Show username
+[username]
+show_always = false
+format = "[$user]($style)@"
+style_user = "bold blue"
+style_root = "bold red"

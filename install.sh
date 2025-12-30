@@ -261,6 +261,7 @@ stow_packages() {
         "zsh"
         "bash"
         "git"
+        "starship"
     )
 
     # nushell managed by home-manager on NixOS
