@@ -83,6 +83,11 @@ setopt INC_APPEND_HISTORY        # Add commands as they are typed
 # ==============================================================================
 # PATH Setup
 # ==============================================================================
+# Homebrew (macOS)
+if [[ -f /opt/homebrew/bin/brew ]]; then
+    eval "$(/opt/homebrew/bin/brew shellenv)"
+fi
+
 # Add local bin and claude to PATH
 export PATH="$HOME/.local/bin:$HOME/.claude/local:$PATH"
 
