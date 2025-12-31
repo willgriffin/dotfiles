@@ -175,20 +175,6 @@ if [[ -z "$ZELLIJ" && $- == *i* ]] && _is_mosh; then
 fi
 
 # ==============================================================================
-# Platform-Specific Configuration
-# ==============================================================================
-if [[ "$PLATFORM" == "linux" ]]; then
-    # Source global environment variables from secrets (NixOS only)
-    if command -v source-global-env &> /dev/null; then
-        ENV_FILE=$(source-global-env)
-        if [[ -f "$ENV_FILE" ]]; then
-            source "$ENV_FILE"
-            rm "$ENV_FILE"  # Clean up the temporary file
-        fi
-    fi
-fi
-
-# ==============================================================================
 # Local Overrides (machine-specific customizations)
 # ==============================================================================
 # Source local overrides if they exist
