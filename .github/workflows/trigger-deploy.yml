@@ -1,0 +1,17 @@
+name: Trigger NixOS Deploy
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger nixos-config deploy
+        run: |
+          curl -X POST \
+            -H "Authorization: token ${{ secrets.NIXOS_CONFIG_PAT }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            https://api.github.com/repos/willgriffin/nixos-config/dispatches \
+            -d '{"event_type": "dotfiles-updated"}'
