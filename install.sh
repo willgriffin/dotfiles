@@ -235,6 +235,67 @@ install_gemini_cli() {
     npm install -g --prefix "$HOME/.npm-global" @google/gemini-cli
 }
 
+install_ralph() {
+    local ralph_dir="$HOME/.ralph"
+
+    # Check if already installed
+    if [[ -x "$HOME/.local/bin/ralph" ]] && [[ -d "$ralph_dir" ]]; then
+        echo "Ralph already installed"
+        return 0
+    fi
+
+    echo "Installing Ralph (autonomous Claude Code framework)..."
+
+    # Clone or update Ralph
+    if [[ -d "$ralph_dir/.git" ]]; then
+        echo "  Updating Ralph..."
+        git -C "$ralph_dir" pull --quiet
+    else
+        echo "  Cloning Ralph..."
+        git clone --quiet https://github.com/frankbria/ralph-claude-code.git "$ralph_dir"
+    fi
+
+    # Patch shebangs for NixOS compatibility (#!/bin/bash -> #!/usr/bin/env bash)
+    echo "  Patching shebangs for portability..."
+    find "$ralph_dir" -type f -name "*.sh" -exec sed -i.bak 's|^#!/bin/bash|#!/usr/bin/env bash|' {} \;
+    find "$ralph_dir" -type f -name "*.bak" -delete
+
+    # Create ~/.local/bin if needed
+    mkdir -p "$HOME/.local/bin"
+
+    # Create wrapper scripts in ~/.local/bin
+    # ralph - main command
+    cat > "$HOME/.local/bin/ralph" << 'EOF'
+#!/usr/bin/env bash
+exec "$HOME/.ralph/ralph_loop.sh" "$@"
+EOF
+    chmod +x "$HOME/.local/bin/ralph"
+
+    # ralph-monitor
+    cat > "$HOME/.local/bin/ralph-monitor" << 'EOF'
+#!/usr/bin/env bash
+exec "$HOME/.ralph/ralph_monitor.sh" "$@"
+EOF
+    chmod +x "$HOME/.local/bin/ralph-monitor"
+
+    # ralph-setup
+    cat > "$HOME/.local/bin/ralph-setup" << 'EOF'
+#!/usr/bin/env bash
+exec "$HOME/.ralph/setup.sh" "$@"
+EOF
+    chmod +x "$HOME/.local/bin/ralph-setup"
+
+    # ralph-import
+    cat > "$HOME/.local/bin/ralph-import" << 'EOF'
+#!/usr/bin/env bash
+exec "$HOME/.ralph/ralph_import.sh" "$@"
+EOF
+    chmod +x "$HOME/.local/bin/ralph-import"
+
+    echo "Ralph installed successfully!"
+    echo "  Commands: ralph, ralph-monitor, ralph-setup, ralph-import"
+}
+
 install_oh_my_zsh() {
     if [[ -d "$HOME/.oh-my-zsh" ]]; then
         echo "Oh My Zsh already installed"
@@ -375,6 +436,7 @@ main() {
     # Install AI CLI tools
     install_claude_code
     install_gemini_cli
+    install_ralph
     echo
 
     # Install Oh My Zsh
