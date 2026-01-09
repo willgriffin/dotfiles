@@ -97,3 +97,4 @@ These files are sourced at the end of the main configs.
 - `claude` - `~/.claude/local/claude`
 - `rebuild` / `update` - Platform-specific rebuild command
 
+
