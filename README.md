@@ -96,3 +96,4 @@ These files are sourced at the end of the main configs.
 - `repomix` - `npx repomix`
 - `claude` - `~/.claude/local/claude`
 - `rebuild` / `update` - Platform-specific rebuild command
+
