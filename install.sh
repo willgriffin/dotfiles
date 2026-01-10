@@ -220,11 +220,18 @@ install_claude_code() {
 }
 
 install_claude_plugins() {
-    local plugins_dir="$HOME/.claude/plugins"
-    local cache_dir="$HOME/.cache/claude-code-repo"
-    local repo_url="https://github.com/anthropics/claude-code.git"
+    # Ensure claude command is available
+    local claude_cmd=""
+    if [[ -x "$HOME/.claude/local/claude" ]]; then
+        claude_cmd="$HOME/.claude/local/claude"
+    elif command -v claude &> /dev/null; then
+        claude_cmd="claude"
+    else
+        echo "Claude Code not installed, skipping plugins"
+        return 0
+    fi
 
-    # Plugins to install from the official repository
+    # Plugins to install from the official claude-code-plugins marketplace
     local plugins=(
         "code-review"
         "commit-commands"
@@ -237,39 +244,13 @@ install_claude_plugins() {
 
     echo "Installing Claude Code plugins..."
 
-    # Create plugins directory
-    mkdir -p "$plugins_dir"
-
-    # Clone or update the claude-code repo (sparse checkout for plugins only)
-    if [[ -d "$cache_dir/.git" ]]; then
-        echo "  Updating claude-code repository..."
-        git -C "$cache_dir" pull --quiet 2>/dev/null || true
-    else
-        echo "  Cloning claude-code repository (sparse checkout)..."
-        mkdir -p "$cache_dir"
-        git clone --depth 1 --filter=blob:none --sparse "$repo_url" "$cache_dir" 2>/dev/null
-        git -C "$cache_dir" sparse-checkout set plugins 2>/dev/null
-    fi
-
-    # Copy each plugin to the plugins directory
     for plugin in "${plugins[@]}"; do
-        local src="$cache_dir/plugins/$plugin"
-        local dest="$plugins_dir/$plugin"
-
-        if [[ -d "$src" ]]; then
-            if [[ -d "$dest" ]]; then
-                echo "  Updating plugin: $plugin"
-                rm -rf "$dest"
-            else
-                echo "  Installing plugin: $plugin"
-            fi
-            cp -r "$src" "$dest"
-        else
-            echo "  Warning: Plugin not found: $plugin"
-        fi
+        local full_name="${plugin}@claude-code-plugins"
+        echo "  Installing plugin: $plugin"
+        echo "y" | "$claude_cmd" plugin install "$full_name" 2>/dev/null || true
     done
 
-    echo "Claude Code plugins installed to $plugins_dir"
+    echo "Claude Code plugins installed"
 }
 
 install_gemini_cli() {
