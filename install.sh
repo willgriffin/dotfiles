@@ -219,6 +219,59 @@ install_claude_code() {
     curl -fsSL https://claude.ai/install.sh | bash
 }
 
+install_claude_plugins() {
+    local plugins_dir="$HOME/.claude/plugins"
+    local cache_dir="$HOME/.cache/claude-code-repo"
+    local repo_url="https://github.com/anthropics/claude-code.git"
+
+    # Plugins to install from the official repository
+    local plugins=(
+        "code-review"
+        "commit-commands"
+        "hookify"
+        "ralph-wiggum"
+        "security-guidance"
+        "frontend-design"
+        "feature-dev"
+    )
+
+    echo "Installing Claude Code plugins..."
+
+    # Create plugins directory
+    mkdir -p "$plugins_dir"
+
+    # Clone or update the claude-code repo (sparse checkout for plugins only)
+    if [[ -d "$cache_dir/.git" ]]; then
+        echo "  Updating claude-code repository..."
+        git -C "$cache_dir" pull --quiet 2>/dev/null || true
+    else
+        echo "  Cloning claude-code repository (sparse checkout)..."
+        mkdir -p "$cache_dir"
+        git clone --depth 1 --filter=blob:none --sparse "$repo_url" "$cache_dir" 2>/dev/null
+        git -C "$cache_dir" sparse-checkout set plugins 2>/dev/null
+    fi
+
+    # Copy each plugin to the plugins directory
+    for plugin in "${plugins[@]}"; do
+        local src="$cache_dir/plugins/$plugin"
+        local dest="$plugins_dir/$plugin"
+
+        if [[ -d "$src" ]]; then
+            if [[ -d "$dest" ]]; then
+                echo "  Updating plugin: $plugin"
+                rm -rf "$dest"
+            else
+                echo "  Installing plugin: $plugin"
+            fi
+            cp -r "$src" "$dest"
+        else
+            echo "  Warning: Plugin not found: $plugin"
+        fi
+    done
+
+    echo "Claude Code plugins installed to $plugins_dir"
+}
+
 install_gemini_cli() {
     if command -v gemini &> /dev/null; then
         echo "Gemini CLI already installed"
@@ -435,6 +488,7 @@ main() {
 
     # Install AI CLI tools
     install_claude_code
+    install_claude_plugins
     install_gemini_cli
     install_ralph
     echo
