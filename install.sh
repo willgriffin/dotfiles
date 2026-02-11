@@ -235,8 +235,6 @@ install_claude_plugins() {
     local plugins=(
         "code-review"
         "commit-commands"
-        "hookify"
-        "ralph-wiggum"
         "security-guidance"
         "frontend-design"
         "feature-dev"
@@ -267,6 +265,21 @@ install_gemini_cli() {
     # Use custom prefix to avoid read-only nix store issues
     mkdir -p "$HOME/.npm-global"
     npm install -g --prefix "$HOME/.npm-global" @google/gemini-cli
+}
+
+install_kimi_code() {
+    if command -v kimi &> /dev/null; then
+        echo "Kimi Code already installed"
+    else
+        echo "Installing Kimi Code..."
+        curl -LsSf https://code.kimi.com/install.sh | bash
+    fi
+
+    # Add chrome-devtools MCP server
+    if command -v kimi &> /dev/null; then
+        echo "Adding chrome-devtools MCP server to Kimi..."
+        kimi mcp add --transport stdio chrome-devtools -- npx chrome-devtools-mcp@latest 2>/dev/null || true
+    fi
 }
 
 install_ralph() {
@@ -364,6 +377,7 @@ stow_packages() {
         "bash"
         "git"
         "starship"
+        "direnv"
     )
 
     # nushell managed by home-manager on NixOS
@@ -470,6 +484,7 @@ main() {
     # Install AI CLI tools
     install_claude_code
     install_claude_plugins
+    install_kimi_code
     install_gemini_cli
     install_ralph
     echo
