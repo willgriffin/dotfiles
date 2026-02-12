@@ -91,6 +91,11 @@ fi
 # Add local bin and claude to PATH
 export PATH="$HOME/.local/bin:$HOME/.claude/local:$PATH"
 
+# PostgreSQL client tools (keg-only on macOS)
+if [[ -d /opt/homebrew/opt/libpq/bin ]]; then
+    export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
+fi
+
 # Configure npm to use home directory for global packages (avoids read-only Nix store)
 export NPM_CONFIG_PREFIX="$HOME/.npm-global"
 export PATH="$HOME/.npm-global/bin:$PATH"

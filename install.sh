@@ -77,6 +77,9 @@ install_packages() {
             echo "Installing optional packages..."
             brew install "${optional_packages[@]}" 2>/dev/null || true
 
+            # PostgreSQL client tools (psql, pg_dump, etc.)
+            brew install libpq 2>/dev/null || true
+
             # Cloud CLI tools
             echo "Installing cloud CLI tools..."
             brew install gh awscli 2>/dev/null || true
