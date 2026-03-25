@@ -1,0 +1,32 @@
+# Automatically source parent .envrc files (call from .envrc)
+# Usage: source_up_if_exists (already in stdlib, just a reminder)
+# Or use this to source up recursively through all parents:
+source_up_recursive() {
+  local dir="$PWD"
+  while [[ "$dir" != "/" ]]; do
+    dir=$(dirname "$dir")
+    if [[ -f "$dir/.envrc" ]]; then
+      source_env "$dir/.envrc"
+    fi
+  done
+}
+
+# Create project-scoped aliases that don't leak to other directories
+# Usage in .envrc: export_alias myalias 'echo hello'
+export_alias() {
+  local name=$1
+  shift
+  local alias_dir=$PWD/.direnv/aliases
+  local target="$alias_dir/$name"
+  local oldpath="$PATH"
+  
+  mkdir -p "$alias_dir"
+  if ! [[ ":$PATH:" == *":$alias_dir:"* ]]; then
+    PATH_add "$alias_dir"
+  fi
+  
+  echo "#!/usr/bin/env bash" > "$target"
+  echo "PATH=\"$oldpath\"" >> "$target"
+  echo "$@" >> "$target"
+  chmod +x "$target"
+}

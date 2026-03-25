@@ -1,3 +1,9 @@
+# Skip heavy plugins if running inside a coding agent
+if [[ "$TERM_PROGRAM" == "vscode" || -n "$ANTIGRAVITY_AGENT" ]]; then
+  export PS1='$ '
+  return
+fi
+
 # ~/.zshrc - Portable Zsh Configuration with Oh My Zsh
 # Managed by dotfiles repo, works on NixOS, macOS, Linux, and containers
 
@@ -189,3 +195,6 @@ fi
 # ==============================================================================
 # Source local overrides if they exist
 [[ -f ~/.zshrc.local ]] && source ~/.zshrc.local
+
+# Added by Antigravity
+export PATH="/Users/will/.antigravity/antigravity/bin:$PATH"

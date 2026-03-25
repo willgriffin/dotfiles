@@ -12,6 +12,7 @@
     rebase = false
 
 [core]
+	pager = cat
     # Use delta for diffs if available, falls back to default
     # pager = delta
 
