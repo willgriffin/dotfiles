@@ -9,7 +9,7 @@ Portable CLI configuration that works across NixOS, macOS, Linux distros, and co
 git clone https://github.com/willgriffin/dotfiles.git ~/dotfiles
 cd ~/dotfiles
 
-# Run the installer
+# Run the installer (packages, AI CLIs, and config symlinks)
 ./install.sh
 ```
 
@@ -42,6 +42,8 @@ Uses [GNU Stow](https://www.gnu.org/software/stow/) to create symlinks:
 # or manually:
 stow zsh bash nushell git
 ```
+
+To pick up new workstation dependencies later, use `update-home` or rerun `./install.sh`.
 
 ### On NixOS
 
@@ -96,5 +98,4 @@ These files are sourced at the end of the main configs.
 - `repomix` - `npx repomix`
 - `claude` - `~/.claude/local/claude`
 - `rebuild` / `update` - Platform-specific rebuild command
-
 

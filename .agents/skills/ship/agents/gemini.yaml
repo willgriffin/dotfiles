@@ -1,0 +1,5 @@
+interface:
+  display_name: "Ship current work"
+  short_description: "Prepare and open a PR."
+policy:
+  allow_implicit_invocation: false

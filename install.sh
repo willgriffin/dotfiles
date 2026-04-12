@@ -210,9 +210,64 @@ install_gh() {
     esac
 }
 
+ensure_npm() {
+    if command -v npm &> /dev/null; then
+        return 0
+    fi
+
+    echo "Installing Node.js and npm..."
+    case "$PLATFORM" in
+        macos)
+            brew install node
+            ;;
+        linux)
+            case "$DISTRO" in
+                ubuntu|debian|pop)
+                    sudo apt-get update
+                    sudo apt-get install -y nodejs npm
+                    ;;
+                fedora|rhel|centos)
+                    sudo dnf install -y nodejs npm
+                    ;;
+                alpine)
+                    sudo apk add nodejs npm
+                    ;;
+                arch|manjaro)
+                    sudo pacman -S --noconfirm nodejs npm
+                    ;;
+                nixos)
+                    echo "NixOS detected - Node.js and npm should be managed by Nix"
+                    return 1
+                    ;;
+                *)
+                    echo "Please install Node.js and npm manually"
+                    return 1
+                    ;;
+            esac
+            ;;
+        *)
+            echo "Please install Node.js and npm manually"
+            return 1
+            ;;
+    esac
+}
+
 # ==============================================================================
 # AI CLI Tools
 # ==============================================================================
+install_codex_cli() {
+    if command -v codex &> /dev/null || [[ -x "$HOME/.npm-global/bin/codex" ]]; then
+        echo "Codex CLI already installed"
+        return 0
+    fi
+
+    ensure_npm
+
+    echo "Installing Codex CLI..."
+    mkdir -p "$HOME/.npm-global"
+    npm install -g --prefix "$HOME/.npm-global" @openai/codex
+}
+
 install_claude_code() {
     if [[ -x "$HOME/.claude/local/claude" ]] || command -v claude &> /dev/null; then
         echo "Claude Code already installed"
@@ -264,6 +319,9 @@ install_gemini_cli() {
         echo "Gemini CLI already installed"
         return 0
     fi
+
+    ensure_npm
+
     echo "Installing Gemini CLI..."
     # Use custom prefix to avoid read-only nix store issues
     mkdir -p "$HOME/.npm-global"
@@ -485,6 +543,7 @@ main() {
     echo
 
     # Install AI CLI tools
+    install_codex_cli
     install_claude_code
     install_claude_plugins
     install_kimi_code

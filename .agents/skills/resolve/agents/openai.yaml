@@ -1,0 +1,5 @@
+interface:
+  display_name: "Resolve PR review comments"
+  short_description: "Address review feedback and resolve threads."
+policy:
+  allow_implicit_invocation: false

@@ -78,7 +78,7 @@ alias gp="git push"
 if [[ -f /etc/os-release ]] && grep -q "^ID=nixos" /etc/os-release; then
     alias update-home="cd $HOME/Work/willgriffin/repos/dotfiles && git pull && ./install.sh && cd - > /dev/null"
 else
-    alias update-home="cd $HOME/Work/willgriffin/repos/dotfiles && git pull && stow --restow zsh bash git nushell && cd - > /dev/null"
+    alias update-home="cd $HOME/Work/willgriffin/repos/dotfiles && git pull && ./install.sh && cd - > /dev/null"
 fi
 
 # ==============================================================================
