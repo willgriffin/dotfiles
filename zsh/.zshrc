@@ -94,8 +94,13 @@ if [[ -f /opt/homebrew/bin/brew ]]; then
     eval "$(/opt/homebrew/bin/brew shellenv)"
 fi
 
-# Add local bin and claude to PATH
+# Add local bin and agent CLIs to PATH
 export PATH="$HOME/.local/bin:$HOME/.claude/local:$PATH"
+
+export PR_REVIEW_DIR="${PR_REVIEW_DIR:-$HOME/Work/happyvertical/repos/pr-review}"
+if [[ -d "$PR_REVIEW_DIR/bin" ]]; then
+    export PATH="$PR_REVIEW_DIR/bin:$PATH"
+fi
 
 # PostgreSQL client tools (keg-only on macOS)
 if [[ -d /opt/homebrew/opt/libpq/bin ]]; then

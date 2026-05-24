@@ -6,6 +6,38 @@
 set -e
 
 DOTFILES_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DRY_RUN=0
+
+usage() {
+    cat <<'EOF'
+Usage: ./install.sh [--dry-run|--audit] [-h|--help]
+
+Installs workstation tooling, shells, CLI tools, and personal dotfiles.
+
+Options:
+  --dry-run, --audit  Report platform/install intent without changing packages,
+                      symlinks, or generated files.
+  -h, --help          Show this help.
+EOF
+}
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --dry-run|--audit)
+            DRY_RUN=1
+            shift
+            ;;
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        *)
+            echo "Unknown option: $1" >&2
+            usage >&2
+            exit 2
+            ;;
+    esac
+done
 
 # ==============================================================================
 # Platform Detection
@@ -27,6 +59,25 @@ detect_platform() {
             DISTRO="unknown"
         fi
     fi
+}
+
+run_privileged() {
+    if [[ "$(id -u)" -eq 0 ]]; then
+        "$@"
+        return $?
+    fi
+
+    if command -v sudo &> /dev/null && sudo -n true 2>/dev/null; then
+        sudo -n "$@"
+        return $?
+    fi
+
+    echo "Skipping privileged command (sudo unavailable or requires a password): $*"
+    return 0
+}
+
+can_run_privileged() {
+    [[ "$(id -u)" -eq 0 ]] || (command -v sudo &> /dev/null && sudo -n true 2>/dev/null)
 }
 
 # ==============================================================================
@@ -54,12 +105,6 @@ install_packages() {
         ripgrep       # better grep
         fd            # better find
         jq            # json processor
-    )
-
-    # Cloud CLI tools
-    local cloud_packages=(
-        gh            # GitHub CLI
-        awscli        # AWS CLI (awscli2 on some distros)
     )
 
     case "$PLATFORM" in
@@ -92,11 +137,11 @@ install_packages() {
         linux)
             case "$DISTRO" in
                 ubuntu|debian|pop)
-                    sudo apt-get update
-                    sudo apt-get install -y "${packages[@]}"
+                    run_privileged apt-get update
+                    run_privileged apt-get install -y "${packages[@]}"
                     # Optional packages (some may not be in default repos)
-                    sudo apt-get install -y zsh-autosuggestions zsh-syntax-highlighting 2>/dev/null || true
-                    sudo apt-get install -y fzf bat ripgrep fd-find jq unzip 2>/dev/null || true
+                    run_privileged apt-get install -y zsh-autosuggestions zsh-syntax-highlighting 2>/dev/null || true
+                    run_privileged apt-get install -y fzf bat ripgrep fd-find jq unzip 2>/dev/null || true
                     # Starship, zoxide need manual install on Debian/Ubuntu
                     install_starship
                     install_zoxide
@@ -106,9 +151,9 @@ install_packages() {
                     install_gcloud
                     ;;
                 fedora|rhel|centos)
-                    sudo dnf install -y "${packages[@]}"
-                    sudo dnf install -y zsh-autosuggestions zsh-syntax-highlighting 2>/dev/null || true
-                    sudo dnf install -y fzf bat ripgrep fd-find jq eza unzip 2>/dev/null || true
+                    run_privileged dnf install -y "${packages[@]}"
+                    run_privileged dnf install -y zsh-autosuggestions zsh-syntax-highlighting 2>/dev/null || true
+                    run_privileged dnf install -y fzf bat ripgrep fd-find jq eza unzip 2>/dev/null || true
                     install_starship
                     install_zoxide
                     # Cloud CLI tools
@@ -117,21 +162,21 @@ install_packages() {
                     install_gcloud
                     ;;
                 alpine)
-                    sudo apk add "${packages[@]}"
-                    sudo apk add zsh-autosuggestions zsh-syntax-highlighting 2>/dev/null || true
-                    sudo apk add fzf bat ripgrep fd jq unzip 2>/dev/null || true
+                    run_privileged apk add "${packages[@]}"
+                    run_privileged apk add zsh-autosuggestions zsh-syntax-highlighting 2>/dev/null || true
+                    run_privileged apk add fzf bat ripgrep fd jq unzip 2>/dev/null || true
                     install_starship
                     install_zoxide
                     # Cloud CLI tools
-                    sudo apk add github-cli aws-cli 2>/dev/null || true
+                    run_privileged apk add github-cli aws-cli 2>/dev/null || true
                     install_gcloud
                     ;;
                 arch|manjaro)
-                    sudo pacman -S --noconfirm "${packages[@]}"
-                    sudo pacman -S --noconfirm zsh-autosuggestions zsh-syntax-highlighting 2>/dev/null || true
-                    sudo pacman -S --noconfirm starship zoxide fzf bat eza ripgrep fd jq direnv 2>/dev/null || true
+                    run_privileged pacman -S --noconfirm "${packages[@]}"
+                    run_privileged pacman -S --noconfirm zsh-autosuggestions zsh-syntax-highlighting 2>/dev/null || true
+                    run_privileged pacman -S --noconfirm starship zoxide fzf bat eza ripgrep fd jq direnv 2>/dev/null || true
                     # Cloud CLI tools
-                    sudo pacman -S --noconfirm github-cli aws-cli 2>/dev/null || true
+                    run_privileged pacman -S --noconfirm github-cli aws-cli 2>/dev/null || true
                     install_gcloud
                     ;;
                 nixos)
@@ -144,6 +189,42 @@ install_packages() {
             esac
             ;;
     esac
+}
+
+install_sops_tools() {
+    echo "Installing SOPS tooling..."
+
+    case "$PLATFORM" in
+        macos)
+            brew install sops age gnupg 2>/dev/null || true
+            ;;
+        linux)
+            case "$DISTRO" in
+                ubuntu|debian|pop)
+                    run_privileged apt-get install -y age gnupg 2>/dev/null || true
+                    run_privileged apt-get install -y sops 2>/dev/null || true
+                    ;;
+                fedora|rhel|centos)
+                    run_privileged dnf install -y age gnupg2 sops 2>/dev/null || true
+                    ;;
+                alpine)
+                    run_privileged apk add age gnupg sops 2>/dev/null || true
+                    ;;
+                arch|manjaro)
+                    run_privileged pacman -S --noconfirm age gnupg sops 2>/dev/null || true
+                    ;;
+                nixos)
+                    echo "NixOS detected - SOPS tooling should be managed by Nix"
+                    ;;
+            esac
+            ;;
+    esac
+
+    if command -v sops &> /dev/null; then
+        echo "SOPS available: $(command -v sops)"
+    else
+        echo "SOPS not found after package install; configure it via your platform package manager."
+    fi
 }
 
 install_starship() {
@@ -184,7 +265,7 @@ install_awscli() {
     if [[ "$PLATFORM" == "linux" ]]; then
         curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "/tmp/awscliv2.zip"
         unzip -q /tmp/awscliv2.zip -d /tmp
-        sudo /tmp/aws/install
+        run_privileged /tmp/aws/install
         rm -rf /tmp/awscliv2.zip /tmp/aws
     fi
 }
@@ -197,12 +278,16 @@ install_gh() {
     echo "Installing GitHub CLI..."
     case "$DISTRO" in
         ubuntu|debian|pop)
-            curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
-            echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
-            sudo apt-get update && sudo apt-get install -y gh
+            if can_run_privileged; then
+                curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | run_privileged dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+                echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | run_privileged tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+                run_privileged apt-get update && run_privileged apt-get install -y gh
+            else
+                echo "Skipping gh apt setup; root/sudo is not available noninteractively."
+            fi
             ;;
         fedora|rhel|centos)
-            sudo dnf install -y gh 2>/dev/null || true
+            run_privileged dnf install -y gh 2>/dev/null || true
             ;;
         *)
             echo "Please install gh manually: https://cli.github.com/"
@@ -223,17 +308,17 @@ ensure_npm() {
         linux)
             case "$DISTRO" in
                 ubuntu|debian|pop)
-                    sudo apt-get update
-                    sudo apt-get install -y nodejs npm
+                    run_privileged apt-get update
+                    run_privileged apt-get install -y nodejs npm
                     ;;
                 fedora|rhel|centos)
-                    sudo dnf install -y nodejs npm
+                    run_privileged dnf install -y nodejs npm
                     ;;
                 alpine)
-                    sudo apk add nodejs npm
+                    run_privileged apk add nodejs npm
                     ;;
                 arch|manjaro)
-                    sudo pacman -S --noconfirm nodejs npm
+                    run_privileged pacman -S --noconfirm nodejs npm
                     ;;
                 nixos)
                     echo "NixOS detected - Node.js and npm should be managed by Nix"
@@ -250,6 +335,11 @@ ensure_npm() {
             return 1
             ;;
     esac
+
+    if ! command -v npm &> /dev/null; then
+        echo "npm still not available after install attempt"
+        return 1
+    fi
 }
 
 ensure_agent_paths() {
@@ -262,6 +352,7 @@ ensure_agent_paths() {
     if [[ -d "$HOME/.claude/local" ]] && [[ ":$PATH:" != *":$HOME/.claude/local:"* ]]; then
         export PATH="$HOME/.claude/local:$PATH"
     fi
+
 }
 
 # ==============================================================================
@@ -348,45 +439,6 @@ install_copilot_cli() {
     else
         echo "Could not install GitHub Copilot CLI"
     fi
-}
-
-install_have_config() {
-    ensure_agent_paths
-
-    local have_config_dir="${HAVE_CONFIG_DIR:-$HOME/Work/happyvertical/repos/have-config}"
-    local repo_url="${HAVE_CONFIG_REPO_URL:-git@github.com:happyvertical/have-config.git}"
-    local fallback_repo_url="https://github.com/happyvertical/have-config.git"
-    local install_args=()
-
-    if [[ "${HAVE_CONFIG_LIVE:-1}" != "0" ]]; then
-        install_args+=(--live)
-    fi
-
-    if [[ -d "$have_config_dir/.git" ]]; then
-        echo "Updating have-config..."
-        if ! git -C "$have_config_dir" pull --ff-only --quiet; then
-            echo "  Could not fast-forward have-config; using existing checkout."
-        fi
-    else
-        echo "Cloning have-config..."
-        mkdir -p "$(dirname "$have_config_dir")"
-        if ! git clone --quiet "$repo_url" "$have_config_dir"; then
-            if [[ "$repo_url" != "$fallback_repo_url" ]]; then
-                echo "  SSH clone failed, trying HTTPS..."
-                git clone --quiet "$fallback_repo_url" "$have_config_dir"
-            else
-                return 1
-            fi
-        fi
-    fi
-
-    if [[ ! -x "$have_config_dir/install.sh" ]]; then
-        echo "have-config installer not executable at $have_config_dir/install.sh"
-        return 1
-    fi
-
-    echo "Installing HappyVertical agent workflows..."
-    (cd "$have_config_dir" && ./install.sh "${install_args[@]}")
 }
 
 install_gemini_cli() {
@@ -589,6 +641,11 @@ set_default_shell() {
         return 0
     fi
 
+    if [[ "${DOTFILES_NONINTERACTIVE:-1}" == "1" || ! -t 0 ]]; then
+        echo "Skipping default shell prompt (noninteractive install)."
+        return 0
+    fi
+
     local zsh_path
     zsh_path=$(which zsh)
 
@@ -619,10 +676,23 @@ main() {
     echo "Platform: $PLATFORM"
     [[ -n "$DISTRO" ]] && echo "Distro: $DISTRO"
     echo "Dotfiles directory: $DOTFILES_DIR"
+    [[ "$DRY_RUN" -eq 1 ]] && echo "Mode: dry-run"
     echo
+
+    if [[ "$DRY_RUN" -eq 1 ]]; then
+        echo "Dry-run: would install packages, AI CLIs, shell tooling, and stowed dotfiles."
+        echo
+        echo "Core tools: zsh git curl stow starship zoxide direnv fzf bat eza ripgrep fd jq"
+        echo "AI CLIs: codex claude gemini kimi ralph"
+        echo "Package mutation, downloads, shell changes, and stow operations skipped."
+        echo "Dry-run complete!"
+        echo "========================================"
+        return 0
+    fi
 
     # Install packages
     install_packages
+    install_sops_tools
     echo
 
     # Install AI CLI tools
@@ -630,7 +700,6 @@ main() {
     install_claude_code
     install_claude_plugins
     install_copilot_cli
-    install_have_config
     install_kimi_code
     install_gemini_cli
     install_ralph

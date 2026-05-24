@@ -17,6 +17,10 @@ cd ~/dotfiles
 
 ```
 dotfiles/
+├── .agents/                # Cross-agent skills
+│   └── skills/
+├── .codex/                 # Codex defaults
+│   └── AGENTS.md
 ├── zsh/                    # Zsh configuration
 │   └── .zshrc
 ├── bash/                   # Bash configuration
@@ -44,6 +48,12 @@ stow zsh bash nushell git
 ```
 
 To pick up new workstation dependencies later, use `update-home` or rerun `./install.sh`.
+
+Audit without mutating packages or links:
+
+```bash
+./install.sh --dry-run
+```
 
 ### On NixOS
 
@@ -99,5 +109,5 @@ These files are sourced at the end of the main configs.
 - `claude` - `~/.claude/local/claude`
 - `codex` - installed with npm into `~/.npm-global/bin`
 - `gh copilot` - downloads the GitHub Copilot CLI via GitHub CLI
-- HappyVertical agent workflows - `~/Work/happyvertical/repos/have-config/install.sh --live`
+- `sops` / `age` / `gnupg` - local encrypted environment tooling where available
 - `rebuild` / `update` - Platform-specific rebuild command
