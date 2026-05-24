@@ -12,13 +12,11 @@ usage() {
     cat <<'EOF'
 Usage: ./install.sh [--dry-run|--audit] [-h|--help]
 
-Installs workstation and agent tooling, then resolves HappyVertical agent
-configuration from dotfiles, have-config, Context Forge snapshots, and local
-machine overrides.
+Installs workstation tooling, shells, CLI tools, and personal dotfiles.
 
 Options:
-  --dry-run, --audit  Report what would be installed or resolved without
-                      changing packages, symlinks, or generated agent files.
+  --dry-run, --audit  Report platform/install intent without changing packages,
+                      symlinks, or generated files.
   -h, --help          Show this help.
 EOF
 }
@@ -229,122 +227,6 @@ install_sops_tools() {
     fi
 }
 
-process_sops_env() {
-    local hv_config_dir="${HV_CONFIG_DIR:-$HOME/.config/hv}"
-    local sops_file="${HV_SOPS_ENV_FILE:-$hv_config_dir/env.sops.env}"
-    local env_file="${HV_ENV_FILE:-$hv_config_dir/env}"
-    local example_file="$hv_config_dir/env.example"
-
-    mkdir -p "$hv_config_dir"
-
-    if [[ ! -f "$example_file" ]]; then
-        cat > "$example_file" <<'EOF'
-# HappyVertical local environment template.
-# Copy values from Warden or your machine-local secret store.
-#
-# HV_AGENT_EMAIL=agent@example.com
-# HV_ENABLED_CAPABILITIES=happyvertical-identity
-# HV_CONTEXTFORGE_SNAPSHOT_DIR=$HOME/.config/hv/contextforge
-EOF
-    fi
-
-    if [[ -f "$sops_file" ]]; then
-        if ! command -v sops &> /dev/null; then
-            echo "SOPS env file exists at $sops_file but sops is not installed."
-            return 1
-        fi
-
-        echo "Decrypting local SOPS environment file..."
-        local tmp_file
-        tmp_file="$(mktemp)"
-        sops -d "$sops_file" > "$tmp_file"
-        chmod 600 "$tmp_file"
-        mv "$tmp_file" "$env_file"
-        echo "Wrote local environment file: $env_file"
-    else
-        echo "No local SOPS environment file at $sops_file; leaving secrets to Warden/local env."
-    fi
-}
-
-load_hv_env() {
-    local hv_config_dir="${HV_CONFIG_DIR:-$HOME/.config/hv}"
-    local env_file="${HV_ENV_FILE:-$hv_config_dir/env}"
-
-    if [[ -f "$env_file" ]]; then
-        echo "Loading HappyVertical local environment: $env_file"
-        set -a
-        # shellcheck disable=SC1090
-        . "$env_file"
-        set +a
-    fi
-}
-
-install_report_path() {
-    local hv_config_dir="${HV_CONFIG_DIR:-$HOME/.config/hv}"
-    echo "${HV_INSTALL_REPORT:-$hv_config_dir/install-report.md}"
-}
-
-append_tool_audit() {
-    local report_path
-    report_path="$(install_report_path)"
-    mkdir -p "$(dirname "$report_path")"
-
-    {
-        echo
-        echo "## Bootstrap Tool Audit"
-        echo
-        echo "- Platform: ${PLATFORM:-unknown}${DISTRO:+/$DISTRO}"
-        echo "- Package mutation: $([[ "$DRY_RUN" -eq 1 ]] && echo "skipped by dry-run" || echo "attempted where supported")"
-        echo
-        echo "| Tool | Status |"
-        echo "| --- | --- |"
-        for tool in git zsh stow python3 sops age gpg rclone pr-review claude codex gh aws gcloud; do
-            if command -v "$tool" &> /dev/null; then
-                echo "| \`$tool\` | available at \`$(command -v "$tool")\` |"
-            elif [[ "$DRY_RUN" -eq 1 ]]; then
-                echo "| \`$tool\` | skipped by dry-run |"
-            else
-                echo "| \`$tool\` | not available after install attempt |"
-            fi
-        done
-    } >> "$report_path"
-}
-
-install_service_clis() {
-    echo "Installing service CLIs..."
-
-    case "$PLATFORM" in
-        macos)
-            brew install rclone 2>/dev/null || true
-            ;;
-        linux)
-            case "$DISTRO" in
-                ubuntu|debian|pop)
-                    run_privileged apt-get install -y rclone 2>/dev/null || true
-                    ;;
-                fedora|rhel|centos)
-                    run_privileged dnf install -y rclone 2>/dev/null || true
-                    ;;
-                alpine)
-                    run_privileged apk add rclone 2>/dev/null || true
-                    ;;
-                arch|manjaro)
-                    run_privileged pacman -S --noconfirm rclone 2>/dev/null || true
-                    ;;
-                nixos)
-                    echo "NixOS detected - service CLIs should be managed by Nix"
-                    ;;
-            esac
-            ;;
-    esac
-
-    if command -v rclone &> /dev/null; then
-        echo "OxiCloud/WebDAV CLI available: $(command -v rclone)"
-    else
-        echo "rclone not found; OxiCloud CLI support will be documented but not configured."
-    fi
-}
-
 install_starship() {
     if command -v starship &> /dev/null; then
         echo "Starship already installed"
@@ -471,10 +353,6 @@ ensure_agent_paths() {
         export PATH="$HOME/.claude/local:$PATH"
     fi
 
-    local pr_review_bin="${PR_REVIEW_DIR:-$HOME/Work/happyvertical/repos/pr-review}/bin"
-    if [[ -d "$pr_review_bin" ]] && [[ ":$PATH:" != *":$pr_review_bin:"* ]]; then
-        export PATH="$pr_review_bin:$PATH"
-    fi
 }
 
 # ==============================================================================
@@ -561,213 +439,6 @@ install_copilot_cli() {
     else
         echo "Could not install GitHub Copilot CLI"
     fi
-}
-
-install_pr_review() {
-    ensure_agent_paths
-
-    local pr_review_dir="${PR_REVIEW_DIR:-$HOME/Work/happyvertical/repos/pr-review}"
-    local repo_url="${PR_REVIEW_REPO_URL:-https://github.com/happyvertical/pr-review.git}"
-
-    if [[ -d "$pr_review_dir/.git" ]]; then
-        echo "Updating pr-review..."
-        if ! git -C "$pr_review_dir" pull --ff-only --quiet; then
-            echo "  Could not fast-forward pr-review; using existing checkout."
-        fi
-    else
-        echo "Cloning pr-review..."
-        mkdir -p "$(dirname "$pr_review_dir")"
-        git clone --quiet "$repo_url" "$pr_review_dir"
-    fi
-
-    ensure_agent_paths
-
-    if command -v pr-review &> /dev/null; then
-        echo "pr-review on PATH: $(command -v pr-review)"
-    else
-        echo "pr-review not on PATH. Add this to your shell rc:"
-        echo "  export PATH=\"$pr_review_dir/bin:\$PATH\""
-    fi
-}
-
-repair_have_config_codex_marketplace() {
-    if ! command -v codex &> /dev/null || ! command -v python3 &> /dev/null; then
-        return 0
-    fi
-
-    local expected_source="$1/codex"
-    local existing_source
-    local inspect_status
-
-    if existing_source=$(python3 - "$expected_source" <<'PY'
-import os
-import sys
-
-expected = os.path.realpath(sys.argv[1])
-path = os.path.expanduser("~/.codex/config.toml")
-
-if not os.path.exists(path):
-    sys.exit(0)
-
-in_section = False
-source = None
-
-with open(path, encoding="utf-8") as f:
-    for raw_line in f:
-        line = raw_line.strip()
-        if line.startswith("[") and line.endswith("]"):
-            in_section = line == "[marketplaces.have-config]"
-            continue
-        if in_section and "=" in line:
-            key, value = line.split("=", 1)
-            if key.strip() != "source":
-                continue
-            source = value.strip().strip('"')
-            break
-
-if source and os.path.realpath(os.path.expanduser(source)) != expected:
-    print(source)
-    sys.exit(42)
-PY
-    ); then
-        return 0
-    else
-        inspect_status="$?"
-    fi
-
-    if [[ "$inspect_status" -eq 42 ]]; then
-        echo "Codex marketplace 'have-config' points at $existing_source; re-registering."
-        codex plugin marketplace remove have-config &> /dev/null || true
-    fi
-}
-
-repair_have_config_claude_plugin() {
-    if ! command -v claude &> /dev/null || ! command -v python3 &> /dev/null; then
-        return 0
-    fi
-
-    local plugin_json="$1/claude/have/.claude-plugin/plugin.json"
-    local installed_json="$HOME/.claude/plugins/installed_plugins.json"
-    local stale_reason
-    local inspect_status
-
-    if [[ ! -f "$plugin_json" || ! -f "$installed_json" ]]; then
-        return 0
-    fi
-
-    if stale_reason=$(python3 - "$plugin_json" "$installed_json" <<'PY'
-import json
-import os
-import sys
-
-plugin_json, installed_json = sys.argv[1], os.path.expanduser(sys.argv[2])
-
-with open(plugin_json, encoding="utf-8") as f:
-    expected_version = json.load(f).get("version")
-
-with open(installed_json, encoding="utf-8") as f:
-    installed_data = json.load(f)
-
-installed = installed_data.get("plugins", installed_data).get("have@have-config", [])
-
-if not installed:
-    sys.exit(0)
-
-entry = installed[0]
-installed_version = entry.get("version")
-install_path = entry.get("installPath")
-
-if expected_version and installed_version != expected_version:
-    print(f"version {installed_version} != {expected_version}")
-    sys.exit(42)
-
-if install_path and not os.path.isdir(os.path.expanduser(install_path)):
-    print(f"cache missing at {install_path}")
-    sys.exit(42)
-PY
-    ); then
-        return 0
-    else
-        inspect_status="$?"
-    fi
-
-    if [[ "$inspect_status" -eq 42 ]]; then
-        echo "Claude have@have-config install is stale ($stale_reason); reinstalling."
-        claude plugin uninstall have@have-config &> /dev/null || true
-    fi
-}
-
-install_have_config() {
-    ensure_agent_paths
-
-    local have_config_dir="${HAVE_CONFIG_DIR:-$HOME/Work/happyvertical/repos/have-config}"
-    local repo_url="${HAVE_CONFIG_REPO_URL:-git@github.com:happyvertical/have-config.git}"
-    local fallback_repo_url="https://github.com/happyvertical/have-config.git"
-    local install_args=()
-    HAVE_CONFIG_DIR_RESOLVED="$have_config_dir"
-
-    if [[ "${HAVE_CONFIG_LIVE:-1}" != "0" ]]; then
-        install_args+=(--live)
-    fi
-
-    if [[ "$DRY_RUN" -eq 1 ]]; then
-        echo "Dry-run: would install/update have-config at $have_config_dir"
-        if [[ -x "$have_config_dir/install.sh" ]]; then
-            (cd "$have_config_dir" && ./install.sh --dry-run)
-        else
-            echo "Dry-run: have-config installer not found at $have_config_dir/install.sh"
-        fi
-        return 0
-    fi
-
-    if [[ -d "$have_config_dir/.git" ]]; then
-        echo "Updating have-config..."
-        if ! git -C "$have_config_dir" pull --ff-only --quiet; then
-            echo "  Could not fast-forward have-config; using existing checkout."
-        fi
-    else
-        echo "Cloning have-config..."
-        mkdir -p "$(dirname "$have_config_dir")"
-        if ! git clone --quiet "$repo_url" "$have_config_dir"; then
-            if [[ "$repo_url" != "$fallback_repo_url" ]]; then
-                echo "  SSH clone failed, trying HTTPS..."
-                git clone --quiet "$fallback_repo_url" "$have_config_dir"
-            else
-                return 1
-            fi
-        fi
-    fi
-
-    if [[ ! -x "$have_config_dir/install.sh" ]]; then
-        echo "have-config installer not executable at $have_config_dir/install.sh"
-        return 1
-    fi
-
-    repair_have_config_claude_plugin "$have_config_dir"
-    repair_have_config_codex_marketplace "$have_config_dir"
-
-    echo "Installing HappyVertical agent workflows..."
-    (cd "$have_config_dir" && ./install.sh "${install_args[@]}")
-}
-
-run_agent_resolver() {
-    if ! command -v python3 &> /dev/null; then
-        echo "python3 not found; cannot resolve HappyVertical agent configuration"
-        return 1
-    fi
-
-    local have_config_dir="${HAVE_CONFIG_DIR_RESOLVED:-${HAVE_CONFIG_DIR:-$HOME/Work/happyvertical/repos/have-config}}"
-    local args=(
-        --dotfiles-dir "$DOTFILES_DIR"
-        --have-config-dir "$have_config_dir"
-    )
-
-    if [[ "$DRY_RUN" -eq 1 ]]; then
-        args+=(--dry-run)
-    fi
-
-    echo "Resolving HappyVertical agent configuration..."
-    python3 "$DOTFILES_DIR/scripts/hv-agent-resolver.py" "${args[@]}"
 }
 
 install_gemini_cli() {
@@ -970,7 +641,7 @@ set_default_shell() {
         return 0
     fi
 
-    if [[ "${HV_NONINTERACTIVE:-1}" == "1" || ! -t 0 ]]; then
+    if [[ "${DOTFILES_NONINTERACTIVE:-1}" == "1" || ! -t 0 ]]; then
         echo "Skipping default shell prompt (noninteractive install)."
         return 0
     fi
@@ -1008,16 +679,12 @@ main() {
     [[ "$DRY_RUN" -eq 1 ]] && echo "Mode: dry-run"
     echo
 
-    load_hv_env
-
     if [[ "$DRY_RUN" -eq 1 ]]; then
-        echo "Dry-run: skipping package, CLI, shell, and stow mutations."
-        install_have_config
+        echo "Dry-run: would install packages, AI CLIs, shell tooling, and stowed dotfiles."
         echo
-        run_agent_resolver
-        append_tool_audit
-        echo
-        echo "========================================"
+        echo "Core tools: zsh git curl stow starship zoxide direnv fzf bat eza ripgrep fd jq"
+        echo "AI CLIs: codex claude gemini kimi ralph"
+        echo "Package mutation, downloads, shell changes, and stow operations skipped."
         echo "Dry-run complete!"
         echo "========================================"
         return 0
@@ -1026,9 +693,6 @@ main() {
     # Install packages
     install_packages
     install_sops_tools
-    process_sops_env
-    load_hv_env
-    install_service_clis
     echo
 
     # Install AI CLI tools
@@ -1036,16 +700,9 @@ main() {
     install_claude_code
     install_claude_plugins
     install_copilot_cli
-    install_pr_review
-    install_have_config
     install_kimi_code
     install_gemini_cli
     install_ralph
-    echo
-
-    # Compose and install cross-agent skills/docs from all configured layers.
-    run_agent_resolver
-    append_tool_audit
     echo
 
     # Install Oh My Zsh
