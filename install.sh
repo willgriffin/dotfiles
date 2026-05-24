@@ -326,6 +326,30 @@ install_claude_plugins() {
     echo "Claude Code plugins installed"
 }
 
+install_copilot_cli() {
+    if ! command -v gh &> /dev/null; then
+        echo "GitHub CLI not installed, skipping Copilot CLI"
+        return 0
+    fi
+
+    if ! gh auth status &> /dev/null; then
+        echo "GitHub CLI not authenticated, skipping Copilot CLI"
+        return 0
+    fi
+
+    if ! gh copilot --help &> /dev/null; then
+        echo "This gh version does not support 'gh copilot', skipping Copilot CLI"
+        return 0
+    fi
+
+    echo "Installing GitHub Copilot CLI..."
+    if gh copilot -- --version &> /dev/null; then
+        echo "GitHub Copilot CLI installed"
+    else
+        echo "Could not install GitHub Copilot CLI"
+    fi
+}
+
 install_have_config() {
     ensure_agent_paths
 
@@ -605,6 +629,7 @@ main() {
     install_codex_cli
     install_claude_code
     install_claude_plugins
+    install_copilot_cli
     install_have_config
     install_kimi_code
     install_gemini_cli

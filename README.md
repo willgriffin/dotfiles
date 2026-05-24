@@ -98,5 +98,6 @@ These files are sourced at the end of the main configs.
 - `repomix` - `npx repomix`
 - `claude` - `~/.claude/local/claude`
 - `codex` - installed with npm into `~/.npm-global/bin`
+- `gh copilot` - downloads the GitHub Copilot CLI via GitHub CLI
 - HappyVertical agent workflows - `~/Work/happyvertical/repos/have-config/install.sh --live`
 - `rebuild` / `update` - Platform-specific rebuild command
