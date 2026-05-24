@@ -17,7 +17,10 @@ cd ~/dotfiles
 
 ```
 dotfiles/
-├── .agents/                # Cross-agent skills
+├── agent/
+│   └── manifest.json       # Agent workflow manifest for org bootstraps
+├── .agents/                # Cross-agent workflow defaults
+│   ├── commands/
 │   └── skills/
 ├── .codex/                 # Codex defaults
 │   └── AGENTS.md
@@ -48,6 +51,10 @@ stow zsh bash nushell git
 ```
 
 To pick up new workstation dependencies later, use `update-home` or rerun `./install.sh`.
+
+Agent workflow definitions live in this repo as generic personal defaults, but
+`install.sh` does not install them directly. Organization bootstraps can consume
+`agent/manifest.json` and layer their own standards over these defaults.
 
 Audit without mutating packages or links:
 

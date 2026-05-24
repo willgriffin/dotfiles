@@ -1,0 +1,5 @@
+interface:
+  display_name: "Run review cycle"
+  short_description: "Review, fix, and retest work."
+policy:
+  allow_implicit_invocation: false
