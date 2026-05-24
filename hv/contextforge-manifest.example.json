@@ -1,0 +1,29 @@
+{
+  "schema": "https://happyvertical.com/hv-agent-manifest/v1",
+  "layer": "contextforge",
+  "priority": 30,
+  "commands": [
+    {
+      "agent": "claude",
+      "name": "review",
+      "path": "commands/claude/review.md",
+      "source_uri": "have://happyvertical/workflows/review"
+    }
+  ],
+  "skills": [
+    {
+      "agent": "codex",
+      "name": "review",
+      "path": "skills/review",
+      "source_uri": "have://happyvertical/workflows/review"
+    }
+  ],
+  "agent_docs": [
+    {
+      "id": "contextforge.dynamic-policy",
+      "targets": ["agents", "claude"],
+      "path": "agent-docs/dynamic-policy.md",
+      "source_uri": "have://happyvertical/agent-docs/dynamic-policy"
+    }
+  ]
+}

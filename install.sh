@@ -6,6 +6,40 @@
 set -e
 
 DOTFILES_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DRY_RUN=0
+
+usage() {
+    cat <<'EOF'
+Usage: ./install.sh [--dry-run|--audit] [-h|--help]
+
+Installs workstation and agent tooling, then resolves HappyVertical agent
+configuration from dotfiles, have-config, Context Forge snapshots, and local
+machine overrides.
+
+Options:
+  --dry-run, --audit  Report what would be installed or resolved without
+                      changing packages, symlinks, or generated agent files.
+  -h, --help          Show this help.
+EOF
+}
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --dry-run|--audit)
+            DRY_RUN=1
+            shift
+            ;;
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        *)
+            echo "Unknown option: $1" >&2
+            usage >&2
+            exit 2
+            ;;
+    esac
+done
 
 # ==============================================================================
 # Platform Detection
@@ -27,6 +61,25 @@ detect_platform() {
             DISTRO="unknown"
         fi
     fi
+}
+
+run_privileged() {
+    if [[ "$(id -u)" -eq 0 ]]; then
+        "$@"
+        return $?
+    fi
+
+    if command -v sudo &> /dev/null && sudo -n true 2>/dev/null; then
+        sudo -n "$@"
+        return $?
+    fi
+
+    echo "Skipping privileged command (sudo unavailable or requires a password): $*"
+    return 0
+}
+
+can_run_privileged() {
+    [[ "$(id -u)" -eq 0 ]] || (command -v sudo &> /dev/null && sudo -n true 2>/dev/null)
 }
 
 # ==============================================================================
@@ -54,12 +107,6 @@ install_packages() {
         ripgrep       # better grep
         fd            # better find
         jq            # json processor
-    )
-
-    # Cloud CLI tools
-    local cloud_packages=(
-        gh            # GitHub CLI
-        awscli        # AWS CLI (awscli2 on some distros)
     )
 
     case "$PLATFORM" in
@@ -92,11 +139,11 @@ install_packages() {
         linux)
             case "$DISTRO" in
                 ubuntu|debian|pop)
-                    sudo apt-get update
-                    sudo apt-get install -y "${packages[@]}"
+                    run_privileged apt-get update
+                    run_privileged apt-get install -y "${packages[@]}"
                     # Optional packages (some may not be in default repos)
-                    sudo apt-get install -y zsh-autosuggestions zsh-syntax-highlighting 2>/dev/null || true
-                    sudo apt-get install -y fzf bat ripgrep fd-find jq unzip 2>/dev/null || true
+                    run_privileged apt-get install -y zsh-autosuggestions zsh-syntax-highlighting 2>/dev/null || true
+                    run_privileged apt-get install -y fzf bat ripgrep fd-find jq unzip 2>/dev/null || true
                     # Starship, zoxide need manual install on Debian/Ubuntu
                     install_starship
                     install_zoxide
@@ -106,9 +153,9 @@ install_packages() {
                     install_gcloud
                     ;;
                 fedora|rhel|centos)
-                    sudo dnf install -y "${packages[@]}"
-                    sudo dnf install -y zsh-autosuggestions zsh-syntax-highlighting 2>/dev/null || true
-                    sudo dnf install -y fzf bat ripgrep fd-find jq eza unzip 2>/dev/null || true
+                    run_privileged dnf install -y "${packages[@]}"
+                    run_privileged dnf install -y zsh-autosuggestions zsh-syntax-highlighting 2>/dev/null || true
+                    run_privileged dnf install -y fzf bat ripgrep fd-find jq eza unzip 2>/dev/null || true
                     install_starship
                     install_zoxide
                     # Cloud CLI tools
@@ -117,21 +164,21 @@ install_packages() {
                     install_gcloud
                     ;;
                 alpine)
-                    sudo apk add "${packages[@]}"
-                    sudo apk add zsh-autosuggestions zsh-syntax-highlighting 2>/dev/null || true
-                    sudo apk add fzf bat ripgrep fd jq unzip 2>/dev/null || true
+                    run_privileged apk add "${packages[@]}"
+                    run_privileged apk add zsh-autosuggestions zsh-syntax-highlighting 2>/dev/null || true
+                    run_privileged apk add fzf bat ripgrep fd jq unzip 2>/dev/null || true
                     install_starship
                     install_zoxide
                     # Cloud CLI tools
-                    sudo apk add github-cli aws-cli 2>/dev/null || true
+                    run_privileged apk add github-cli aws-cli 2>/dev/null || true
                     install_gcloud
                     ;;
                 arch|manjaro)
-                    sudo pacman -S --noconfirm "${packages[@]}"
-                    sudo pacman -S --noconfirm zsh-autosuggestions zsh-syntax-highlighting 2>/dev/null || true
-                    sudo pacman -S --noconfirm starship zoxide fzf bat eza ripgrep fd jq direnv 2>/dev/null || true
+                    run_privileged pacman -S --noconfirm "${packages[@]}"
+                    run_privileged pacman -S --noconfirm zsh-autosuggestions zsh-syntax-highlighting 2>/dev/null || true
+                    run_privileged pacman -S --noconfirm starship zoxide fzf bat eza ripgrep fd jq direnv 2>/dev/null || true
                     # Cloud CLI tools
-                    sudo pacman -S --noconfirm github-cli aws-cli 2>/dev/null || true
+                    run_privileged pacman -S --noconfirm github-cli aws-cli 2>/dev/null || true
                     install_gcloud
                     ;;
                 nixos)
@@ -144,6 +191,158 @@ install_packages() {
             esac
             ;;
     esac
+}
+
+install_sops_tools() {
+    echo "Installing SOPS tooling..."
+
+    case "$PLATFORM" in
+        macos)
+            brew install sops age gnupg 2>/dev/null || true
+            ;;
+        linux)
+            case "$DISTRO" in
+                ubuntu|debian|pop)
+                    run_privileged apt-get install -y age gnupg 2>/dev/null || true
+                    run_privileged apt-get install -y sops 2>/dev/null || true
+                    ;;
+                fedora|rhel|centos)
+                    run_privileged dnf install -y age gnupg2 sops 2>/dev/null || true
+                    ;;
+                alpine)
+                    run_privileged apk add age gnupg sops 2>/dev/null || true
+                    ;;
+                arch|manjaro)
+                    run_privileged pacman -S --noconfirm age gnupg sops 2>/dev/null || true
+                    ;;
+                nixos)
+                    echo "NixOS detected - SOPS tooling should be managed by Nix"
+                    ;;
+            esac
+            ;;
+    esac
+
+    if command -v sops &> /dev/null; then
+        echo "SOPS available: $(command -v sops)"
+    else
+        echo "SOPS not found after package install; configure it via your platform package manager."
+    fi
+}
+
+process_sops_env() {
+    local hv_config_dir="${HV_CONFIG_DIR:-$HOME/.config/hv}"
+    local sops_file="${HV_SOPS_ENV_FILE:-$hv_config_dir/env.sops.env}"
+    local env_file="${HV_ENV_FILE:-$hv_config_dir/env}"
+    local example_file="$hv_config_dir/env.example"
+
+    mkdir -p "$hv_config_dir"
+
+    if [[ ! -f "$example_file" ]]; then
+        cat > "$example_file" <<'EOF'
+# HappyVertical local environment template.
+# Copy values from Warden or your machine-local secret store.
+#
+# HV_AGENT_EMAIL=agent@example.com
+# HV_ENABLED_CAPABILITIES=happyvertical-identity
+# HV_CONTEXTFORGE_SNAPSHOT_DIR=$HOME/.config/hv/contextforge
+EOF
+    fi
+
+    if [[ -f "$sops_file" ]]; then
+        if ! command -v sops &> /dev/null; then
+            echo "SOPS env file exists at $sops_file but sops is not installed."
+            return 1
+        fi
+
+        echo "Decrypting local SOPS environment file..."
+        local tmp_file
+        tmp_file="$(mktemp)"
+        sops -d "$sops_file" > "$tmp_file"
+        chmod 600 "$tmp_file"
+        mv "$tmp_file" "$env_file"
+        echo "Wrote local environment file: $env_file"
+    else
+        echo "No local SOPS environment file at $sops_file; leaving secrets to Warden/local env."
+    fi
+}
+
+load_hv_env() {
+    local hv_config_dir="${HV_CONFIG_DIR:-$HOME/.config/hv}"
+    local env_file="${HV_ENV_FILE:-$hv_config_dir/env}"
+
+    if [[ -f "$env_file" ]]; then
+        echo "Loading HappyVertical local environment: $env_file"
+        set -a
+        # shellcheck disable=SC1090
+        . "$env_file"
+        set +a
+    fi
+}
+
+install_report_path() {
+    local hv_config_dir="${HV_CONFIG_DIR:-$HOME/.config/hv}"
+    echo "${HV_INSTALL_REPORT:-$hv_config_dir/install-report.md}"
+}
+
+append_tool_audit() {
+    local report_path
+    report_path="$(install_report_path)"
+    mkdir -p "$(dirname "$report_path")"
+
+    {
+        echo
+        echo "## Bootstrap Tool Audit"
+        echo
+        echo "- Platform: ${PLATFORM:-unknown}${DISTRO:+/$DISTRO}"
+        echo "- Package mutation: $([[ "$DRY_RUN" -eq 1 ]] && echo "skipped by dry-run" || echo "attempted where supported")"
+        echo
+        echo "| Tool | Status |"
+        echo "| --- | --- |"
+        for tool in git zsh stow python3 sops age gpg rclone pr-review claude codex gh aws gcloud; do
+            if command -v "$tool" &> /dev/null; then
+                echo "| \`$tool\` | available at \`$(command -v "$tool")\` |"
+            elif [[ "$DRY_RUN" -eq 1 ]]; then
+                echo "| \`$tool\` | skipped by dry-run |"
+            else
+                echo "| \`$tool\` | not available after install attempt |"
+            fi
+        done
+    } >> "$report_path"
+}
+
+install_service_clis() {
+    echo "Installing service CLIs..."
+
+    case "$PLATFORM" in
+        macos)
+            brew install rclone 2>/dev/null || true
+            ;;
+        linux)
+            case "$DISTRO" in
+                ubuntu|debian|pop)
+                    run_privileged apt-get install -y rclone 2>/dev/null || true
+                    ;;
+                fedora|rhel|centos)
+                    run_privileged dnf install -y rclone 2>/dev/null || true
+                    ;;
+                alpine)
+                    run_privileged apk add rclone 2>/dev/null || true
+                    ;;
+                arch|manjaro)
+                    run_privileged pacman -S --noconfirm rclone 2>/dev/null || true
+                    ;;
+                nixos)
+                    echo "NixOS detected - service CLIs should be managed by Nix"
+                    ;;
+            esac
+            ;;
+    esac
+
+    if command -v rclone &> /dev/null; then
+        echo "OxiCloud/WebDAV CLI available: $(command -v rclone)"
+    else
+        echo "rclone not found; OxiCloud CLI support will be documented but not configured."
+    fi
 }
 
 install_starship() {
@@ -184,7 +383,7 @@ install_awscli() {
     if [[ "$PLATFORM" == "linux" ]]; then
         curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "/tmp/awscliv2.zip"
         unzip -q /tmp/awscliv2.zip -d /tmp
-        sudo /tmp/aws/install
+        run_privileged /tmp/aws/install
         rm -rf /tmp/awscliv2.zip /tmp/aws
     fi
 }
@@ -197,12 +396,16 @@ install_gh() {
     echo "Installing GitHub CLI..."
     case "$DISTRO" in
         ubuntu|debian|pop)
-            curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
-            echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
-            sudo apt-get update && sudo apt-get install -y gh
+            if can_run_privileged; then
+                curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | run_privileged dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+                echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | run_privileged tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+                run_privileged apt-get update && run_privileged apt-get install -y gh
+            else
+                echo "Skipping gh apt setup; root/sudo is not available noninteractively."
+            fi
             ;;
         fedora|rhel|centos)
-            sudo dnf install -y gh 2>/dev/null || true
+            run_privileged dnf install -y gh 2>/dev/null || true
             ;;
         *)
             echo "Please install gh manually: https://cli.github.com/"
@@ -223,17 +426,17 @@ ensure_npm() {
         linux)
             case "$DISTRO" in
                 ubuntu|debian|pop)
-                    sudo apt-get update
-                    sudo apt-get install -y nodejs npm
+                    run_privileged apt-get update
+                    run_privileged apt-get install -y nodejs npm
                     ;;
                 fedora|rhel|centos)
-                    sudo dnf install -y nodejs npm
+                    run_privileged dnf install -y nodejs npm
                     ;;
                 alpine)
-                    sudo apk add nodejs npm
+                    run_privileged apk add nodejs npm
                     ;;
                 arch|manjaro)
-                    sudo pacman -S --noconfirm nodejs npm
+                    run_privileged pacman -S --noconfirm nodejs npm
                     ;;
                 nixos)
                     echo "NixOS detected - Node.js and npm should be managed by Nix"
@@ -250,6 +453,11 @@ ensure_npm() {
             return 1
             ;;
     esac
+
+    if ! command -v npm &> /dev/null; then
+        echo "npm still not available after install attempt"
+        return 1
+    fi
 }
 
 ensure_agent_paths() {
@@ -496,9 +704,20 @@ install_have_config() {
     local repo_url="${HAVE_CONFIG_REPO_URL:-git@github.com:happyvertical/have-config.git}"
     local fallback_repo_url="https://github.com/happyvertical/have-config.git"
     local install_args=()
+    HAVE_CONFIG_DIR_RESOLVED="$have_config_dir"
 
     if [[ "${HAVE_CONFIG_LIVE:-1}" != "0" ]]; then
         install_args+=(--live)
+    fi
+
+    if [[ "$DRY_RUN" -eq 1 ]]; then
+        echo "Dry-run: would install/update have-config at $have_config_dir"
+        if [[ -x "$have_config_dir/install.sh" ]]; then
+            (cd "$have_config_dir" && ./install.sh --dry-run)
+        else
+            echo "Dry-run: have-config installer not found at $have_config_dir/install.sh"
+        fi
+        return 0
     fi
 
     if [[ -d "$have_config_dir/.git" ]]; then
@@ -531,52 +750,24 @@ install_have_config() {
     (cd "$have_config_dir" && ./install.sh "${install_args[@]}")
 }
 
-link_managed_path() {
-    local source="$1"
-    local target="$2"
-    local relative="${target#$HOME/}"
-
-    if [[ -L "$target" ]]; then
-        local current
-        current="$(readlink "$target")"
-        if [[ "$current" == "$source" ]]; then
-            echo "  Already linked: $relative"
-            return 0
-        fi
+run_agent_resolver() {
+    if ! command -v python3 &> /dev/null; then
+        echo "python3 not found; cannot resolve HappyVertical agent configuration"
+        return 1
     fi
 
-    if [[ -e "$target" || -L "$target" ]]; then
-        if [[ -f "$source" && -f "$target" ]] && cmp -s "$source" "$target"; then
-            rm "$target"
-        else
-            local backup_dir="$HOME/.dotfiles-backup-$(date +%Y%m%d-%H%M%S)"
-            local backup_path="$backup_dir/$relative"
-            mkdir -p "$(dirname "$backup_path")"
-            mv "$target" "$backup_path"
-            echo "  Backed up existing: $relative -> $backup_path"
-        fi
+    local have_config_dir="${HAVE_CONFIG_DIR_RESOLVED:-${HAVE_CONFIG_DIR:-$HOME/Work/happyvertical/repos/have-config}}"
+    local args=(
+        --dotfiles-dir "$DOTFILES_DIR"
+        --have-config-dir "$have_config_dir"
+    )
+
+    if [[ "$DRY_RUN" -eq 1 ]]; then
+        args+=(--dry-run)
     fi
 
-    mkdir -p "$(dirname "$target")"
-    ln -s "$source" "$target"
-    echo "  Linked: $relative"
-}
-
-install_agent_configs() {
-    echo "Installing agent configs..."
-
-    if [[ -d "$DOTFILES_DIR/.agents/skills" ]]; then
-        mkdir -p "$HOME/.agents/skills"
-        for skill_dir in "$DOTFILES_DIR"/.agents/skills/*; do
-            [[ -d "$skill_dir" ]] || continue
-            link_managed_path "$skill_dir" "$HOME/.agents/skills/$(basename "$skill_dir")"
-        done
-    fi
-
-    if [[ -f "$DOTFILES_DIR/.codex/AGENTS.md" ]]; then
-        mkdir -p "$HOME/.codex"
-        link_managed_path "$DOTFILES_DIR/.codex/AGENTS.md" "$HOME/.codex/AGENTS.md"
-    fi
+    echo "Resolving HappyVertical agent configuration..."
+    python3 "$DOTFILES_DIR/scripts/hv-agent-resolver.py" "${args[@]}"
 }
 
 install_gemini_cli() {
@@ -779,6 +970,11 @@ set_default_shell() {
         return 0
     fi
 
+    if [[ "${HV_NONINTERACTIVE:-1}" == "1" || ! -t 0 ]]; then
+        echo "Skipping default shell prompt (noninteractive install)."
+        return 0
+    fi
+
     local zsh_path
     zsh_path=$(which zsh)
 
@@ -809,10 +1005,30 @@ main() {
     echo "Platform: $PLATFORM"
     [[ -n "$DISTRO" ]] && echo "Distro: $DISTRO"
     echo "Dotfiles directory: $DOTFILES_DIR"
+    [[ "$DRY_RUN" -eq 1 ]] && echo "Mode: dry-run"
     echo
+
+    load_hv_env
+
+    if [[ "$DRY_RUN" -eq 1 ]]; then
+        echo "Dry-run: skipping package, CLI, shell, and stow mutations."
+        install_have_config
+        echo
+        run_agent_resolver
+        append_tool_audit
+        echo
+        echo "========================================"
+        echo "Dry-run complete!"
+        echo "========================================"
+        return 0
+    fi
 
     # Install packages
     install_packages
+    install_sops_tools
+    process_sops_env
+    load_hv_env
+    install_service_clis
     echo
 
     # Install AI CLI tools
@@ -827,8 +1043,9 @@ main() {
     install_ralph
     echo
 
-    # Install cross-agent skills and Codex defaults managed by this repo.
-    install_agent_configs
+    # Compose and install cross-agent skills/docs from all configured layers.
+    run_agent_resolver
+    append_tool_audit
     echo
 
     # Install Oh My Zsh
