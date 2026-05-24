@@ -262,6 +262,11 @@ ensure_agent_paths() {
     if [[ -d "$HOME/.claude/local" ]] && [[ ":$PATH:" != *":$HOME/.claude/local:"* ]]; then
         export PATH="$HOME/.claude/local:$PATH"
     fi
+
+    local pr_review_bin="${PR_REVIEW_DIR:-$HOME/Work/happyvertical/repos/pr-review}/bin"
+    if [[ -d "$pr_review_bin" ]] && [[ ":$PATH:" != *":$pr_review_bin:"* ]]; then
+        export PATH="$pr_review_bin:$PATH"
+    fi
 }
 
 # ==============================================================================
@@ -350,6 +355,140 @@ install_copilot_cli() {
     fi
 }
 
+install_pr_review() {
+    ensure_agent_paths
+
+    local pr_review_dir="${PR_REVIEW_DIR:-$HOME/Work/happyvertical/repos/pr-review}"
+    local repo_url="${PR_REVIEW_REPO_URL:-https://github.com/happyvertical/pr-review.git}"
+
+    if [[ -d "$pr_review_dir/.git" ]]; then
+        echo "Updating pr-review..."
+        if ! git -C "$pr_review_dir" pull --ff-only --quiet; then
+            echo "  Could not fast-forward pr-review; using existing checkout."
+        fi
+    else
+        echo "Cloning pr-review..."
+        mkdir -p "$(dirname "$pr_review_dir")"
+        git clone --quiet "$repo_url" "$pr_review_dir"
+    fi
+
+    ensure_agent_paths
+
+    if command -v pr-review &> /dev/null; then
+        echo "pr-review on PATH: $(command -v pr-review)"
+    else
+        echo "pr-review not on PATH. Add this to your shell rc:"
+        echo "  export PATH=\"$pr_review_dir/bin:\$PATH\""
+    fi
+}
+
+repair_have_config_codex_marketplace() {
+    if ! command -v codex &> /dev/null || ! command -v python3 &> /dev/null; then
+        return 0
+    fi
+
+    local expected_source="$1/codex"
+    local existing_source
+    local inspect_status
+
+    if existing_source=$(python3 - "$expected_source" <<'PY'
+import os
+import sys
+
+expected = os.path.realpath(sys.argv[1])
+path = os.path.expanduser("~/.codex/config.toml")
+
+if not os.path.exists(path):
+    sys.exit(0)
+
+in_section = False
+source = None
+
+with open(path, encoding="utf-8") as f:
+    for raw_line in f:
+        line = raw_line.strip()
+        if line.startswith("[") and line.endswith("]"):
+            in_section = line == "[marketplaces.have-config]"
+            continue
+        if in_section and "=" in line:
+            key, value = line.split("=", 1)
+            if key.strip() != "source":
+                continue
+            source = value.strip().strip('"')
+            break
+
+if source and os.path.realpath(os.path.expanduser(source)) != expected:
+    print(source)
+    sys.exit(42)
+PY
+    ); then
+        return 0
+    else
+        inspect_status="$?"
+    fi
+
+    if [[ "$inspect_status" -eq 42 ]]; then
+        echo "Codex marketplace 'have-config' points at $existing_source; re-registering."
+        codex plugin marketplace remove have-config &> /dev/null || true
+    fi
+}
+
+repair_have_config_claude_plugin() {
+    if ! command -v claude &> /dev/null || ! command -v python3 &> /dev/null; then
+        return 0
+    fi
+
+    local plugin_json="$1/claude/have/.claude-plugin/plugin.json"
+    local installed_json="$HOME/.claude/plugins/installed_plugins.json"
+    local stale_reason
+    local inspect_status
+
+    if [[ ! -f "$plugin_json" || ! -f "$installed_json" ]]; then
+        return 0
+    fi
+
+    if stale_reason=$(python3 - "$plugin_json" "$installed_json" <<'PY'
+import json
+import os
+import sys
+
+plugin_json, installed_json = sys.argv[1], os.path.expanduser(sys.argv[2])
+
+with open(plugin_json, encoding="utf-8") as f:
+    expected_version = json.load(f).get("version")
+
+with open(installed_json, encoding="utf-8") as f:
+    installed_data = json.load(f)
+
+installed = installed_data.get("plugins", installed_data).get("have@have-config", [])
+
+if not installed:
+    sys.exit(0)
+
+entry = installed[0]
+installed_version = entry.get("version")
+install_path = entry.get("installPath")
+
+if expected_version and installed_version != expected_version:
+    print(f"version {installed_version} != {expected_version}")
+    sys.exit(42)
+
+if install_path and not os.path.isdir(os.path.expanduser(install_path)):
+    print(f"cache missing at {install_path}")
+    sys.exit(42)
+PY
+    ); then
+        return 0
+    else
+        inspect_status="$?"
+    fi
+
+    if [[ "$inspect_status" -eq 42 ]]; then
+        echo "Claude have@have-config install is stale ($stale_reason); reinstalling."
+        claude plugin uninstall have@have-config &> /dev/null || true
+    fi
+}
+
 install_have_config() {
     ensure_agent_paths
 
@@ -385,8 +524,59 @@ install_have_config() {
         return 1
     fi
 
+    repair_have_config_claude_plugin "$have_config_dir"
+    repair_have_config_codex_marketplace "$have_config_dir"
+
     echo "Installing HappyVertical agent workflows..."
     (cd "$have_config_dir" && ./install.sh "${install_args[@]}")
+}
+
+link_managed_path() {
+    local source="$1"
+    local target="$2"
+    local relative="${target#$HOME/}"
+
+    if [[ -L "$target" ]]; then
+        local current
+        current="$(readlink "$target")"
+        if [[ "$current" == "$source" ]]; then
+            echo "  Already linked: $relative"
+            return 0
+        fi
+    fi
+
+    if [[ -e "$target" || -L "$target" ]]; then
+        if [[ -f "$source" && -f "$target" ]] && cmp -s "$source" "$target"; then
+            rm "$target"
+        else
+            local backup_dir="$HOME/.dotfiles-backup-$(date +%Y%m%d-%H%M%S)"
+            local backup_path="$backup_dir/$relative"
+            mkdir -p "$(dirname "$backup_path")"
+            mv "$target" "$backup_path"
+            echo "  Backed up existing: $relative -> $backup_path"
+        fi
+    fi
+
+    mkdir -p "$(dirname "$target")"
+    ln -s "$source" "$target"
+    echo "  Linked: $relative"
+}
+
+install_agent_configs() {
+    echo "Installing agent configs..."
+
+    if [[ -d "$DOTFILES_DIR/.agents/skills" ]]; then
+        mkdir -p "$HOME/.agents/skills"
+        for skill_dir in "$DOTFILES_DIR"/.agents/skills/*; do
+            [[ -d "$skill_dir" ]] || continue
+            link_managed_path "$skill_dir" "$HOME/.agents/skills/$(basename "$skill_dir")"
+        done
+    fi
+
+    if [[ -f "$DOTFILES_DIR/.codex/AGENTS.md" ]]; then
+        mkdir -p "$HOME/.codex"
+        link_managed_path "$DOTFILES_DIR/.codex/AGENTS.md" "$HOME/.codex/AGENTS.md"
+    fi
 }
 
 install_gemini_cli() {
@@ -630,10 +820,15 @@ main() {
     install_claude_code
     install_claude_plugins
     install_copilot_cli
+    install_pr_review
     install_have_config
     install_kimi_code
     install_gemini_cli
     install_ralph
+    echo
+
+    # Install cross-agent skills and Codex defaults managed by this repo.
+    install_agent_configs
     echo
 
     # Install Oh My Zsh

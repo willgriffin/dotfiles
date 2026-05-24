@@ -16,8 +16,13 @@ esac
 # ==============================================================================
 # PATH Setup
 # ==============================================================================
-# Add ~/.local/bin to PATH (for locally installed tools like claude-code)
-export PATH="$HOME/.local/bin:$PATH"
+# Add local bin and agent CLIs to PATH
+export PATH="$HOME/.local/bin:$HOME/.claude/local:$PATH"
+
+export PR_REVIEW_DIR="${PR_REVIEW_DIR:-$HOME/Work/happyvertical/repos/pr-review}"
+if [[ -d "$PR_REVIEW_DIR/bin" ]]; then
+    export PATH="$PR_REVIEW_DIR/bin:$PATH"
+fi
 
 # Configure npm to use home directory for global packages (avoids read-only Nix store)
 export NPM_CONFIG_PREFIX="$HOME/.npm-global"
