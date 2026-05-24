@@ -1,11 +1,8 @@
 ---
-name: ship
-description: Use when the user invokes /ship, ship, or asks to prepare current work for review or open/update a pull request.
-metadata:
-  short-description: Prepare and open a reviewable PR
+description: "Prepare work and open or update a reviewable PR."
 ---
 
-# Ship
+# /ship
 
 Prepare the current branch for review using the standards of the current
 repository and organization.

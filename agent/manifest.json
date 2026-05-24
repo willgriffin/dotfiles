@@ -1,0 +1,60 @@
+{
+  "schema": "https://willgriffin.dev/agent-manifest/v1",
+  "layer": "dotfiles",
+  "priority": 10,
+  "agent_docs": [
+    {
+      "id": "dotfiles.codex-defaults",
+      "targets": ["agents", "codex"],
+      "path": ".codex/AGENTS.md"
+    }
+  ],
+  "commands": [
+    {
+      "agent": "claude",
+      "name": "ship",
+      "path": ".agents/commands/claude/ship.md",
+      "description": "Prepare work and open or update a reviewable PR"
+    },
+    {
+      "agent": "claude",
+      "name": "review-cycle",
+      "path": ".agents/commands/claude/review-cycle.md",
+      "description": "Run a review, fix, and retest loop"
+    },
+    {
+      "agent": "codex",
+      "name": "ship",
+      "path": ".agents/commands/codex/ship.md",
+      "description": "Prepare work and open or update a reviewable PR"
+    },
+    {
+      "agent": "codex",
+      "name": "review-cycle",
+      "path": ".agents/commands/codex/review-cycle.md",
+      "description": "Run a review, fix, and retest loop"
+    }
+  ],
+  "skills": [
+    {
+      "agent": "codex",
+      "name": "ship",
+      "path": ".agents/skills/ship",
+      "description": "Prepare work and open or update a reviewable PR"
+    },
+    {
+      "agent": "codex",
+      "name": "review-cycle",
+      "path": ".agents/skills/review-cycle",
+      "description": "Run a review, fix, and retest loop"
+    },
+    {
+      "agent": "codex",
+      "name": "resolve",
+      "path": ".agents/skills/resolve",
+      "description": "Resolve actionable PR review feedback"
+    }
+  ],
+  "env_requirements": [],
+  "services": []
+}
