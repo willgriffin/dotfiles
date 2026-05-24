@@ -210,9 +210,79 @@ install_gh() {
     esac
 }
 
+ensure_npm() {
+    if command -v npm &> /dev/null; then
+        return 0
+    fi
+
+    echo "Installing Node.js and npm..."
+    case "$PLATFORM" in
+        macos)
+            brew install node
+            ;;
+        linux)
+            case "$DISTRO" in
+                ubuntu|debian|pop)
+                    sudo apt-get update
+                    sudo apt-get install -y nodejs npm
+                    ;;
+                fedora|rhel|centos)
+                    sudo dnf install -y nodejs npm
+                    ;;
+                alpine)
+                    sudo apk add nodejs npm
+                    ;;
+                arch|manjaro)
+                    sudo pacman -S --noconfirm nodejs npm
+                    ;;
+                nixos)
+                    echo "NixOS detected - Node.js and npm should be managed by Nix"
+                    return 1
+                    ;;
+                *)
+                    echo "Please install Node.js and npm manually"
+                    return 1
+                    ;;
+            esac
+            ;;
+        *)
+            echo "Please install Node.js and npm manually"
+            return 1
+            ;;
+    esac
+}
+
+ensure_agent_paths() {
+    export NPM_CONFIG_PREFIX="$HOME/.npm-global"
+
+    if [[ -d "$HOME/.npm-global/bin" ]] && [[ ":$PATH:" != *":$HOME/.npm-global/bin:"* ]]; then
+        export PATH="$HOME/.npm-global/bin:$PATH"
+    fi
+
+    if [[ -d "$HOME/.claude/local" ]] && [[ ":$PATH:" != *":$HOME/.claude/local:"* ]]; then
+        export PATH="$HOME/.claude/local:$PATH"
+    fi
+}
+
 # ==============================================================================
 # AI CLI Tools
 # ==============================================================================
+install_codex_cli() {
+    ensure_agent_paths
+
+    if command -v codex &> /dev/null || [[ -x "$HOME/.npm-global/bin/codex" ]]; then
+        echo "Codex CLI already installed"
+        return 0
+    fi
+
+    ensure_npm
+
+    echo "Installing Codex CLI..."
+    mkdir -p "$HOME/.npm-global"
+    npm install -g --prefix "$HOME/.npm-global" @openai/codex
+    ensure_agent_paths
+}
+
 install_claude_code() {
     if [[ -x "$HOME/.claude/local/claude" ]] || command -v claude &> /dev/null; then
         echo "Claude Code already installed"
@@ -223,6 +293,8 @@ install_claude_code() {
 }
 
 install_claude_plugins() {
+    ensure_agent_paths
+
     # Ensure claude command is available
     local claude_cmd=""
     if [[ -x "$HOME/.claude/local/claude" ]]; then
@@ -254,7 +326,72 @@ install_claude_plugins() {
     echo "Claude Code plugins installed"
 }
 
+install_copilot_cli() {
+    if ! command -v gh &> /dev/null; then
+        echo "GitHub CLI not installed, skipping Copilot CLI"
+        return 0
+    fi
+
+    if ! gh auth status &> /dev/null; then
+        echo "GitHub CLI not authenticated, skipping Copilot CLI"
+        return 0
+    fi
+
+    if ! gh copilot --help &> /dev/null; then
+        echo "This gh version does not support 'gh copilot', skipping Copilot CLI"
+        return 0
+    fi
+
+    echo "Installing GitHub Copilot CLI..."
+    if gh copilot -- --version &> /dev/null; then
+        echo "GitHub Copilot CLI installed"
+    else
+        echo "Could not install GitHub Copilot CLI"
+    fi
+}
+
+install_have_config() {
+    ensure_agent_paths
+
+    local have_config_dir="${HAVE_CONFIG_DIR:-$HOME/Work/happyvertical/repos/have-config}"
+    local repo_url="${HAVE_CONFIG_REPO_URL:-git@github.com:happyvertical/have-config.git}"
+    local fallback_repo_url="https://github.com/happyvertical/have-config.git"
+    local install_args=()
+
+    if [[ "${HAVE_CONFIG_LIVE:-1}" != "0" ]]; then
+        install_args+=(--live)
+    fi
+
+    if [[ -d "$have_config_dir/.git" ]]; then
+        echo "Updating have-config..."
+        if ! git -C "$have_config_dir" pull --ff-only --quiet; then
+            echo "  Could not fast-forward have-config; using existing checkout."
+        fi
+    else
+        echo "Cloning have-config..."
+        mkdir -p "$(dirname "$have_config_dir")"
+        if ! git clone --quiet "$repo_url" "$have_config_dir"; then
+            if [[ "$repo_url" != "$fallback_repo_url" ]]; then
+                echo "  SSH clone failed, trying HTTPS..."
+                git clone --quiet "$fallback_repo_url" "$have_config_dir"
+            else
+                return 1
+            fi
+        fi
+    fi
+
+    if [[ ! -x "$have_config_dir/install.sh" ]]; then
+        echo "have-config installer not executable at $have_config_dir/install.sh"
+        return 1
+    fi
+
+    echo "Installing HappyVertical agent workflows..."
+    (cd "$have_config_dir" && ./install.sh "${install_args[@]}")
+}
+
 install_gemini_cli() {
+    ensure_agent_paths
+
     if command -v gemini &> /dev/null; then
         echo "Gemini CLI already installed"
         return 0
@@ -264,10 +401,14 @@ install_gemini_cli() {
         echo "Gemini CLI already installed"
         return 0
     fi
+
+    ensure_npm
+
     echo "Installing Gemini CLI..."
     # Use custom prefix to avoid read-only nix store issues
     mkdir -p "$HOME/.npm-global"
     npm install -g --prefix "$HOME/.npm-global" @google/gemini-cli
+    ensure_agent_paths
 }
 
 install_kimi_code() {
@@ -485,8 +626,11 @@ main() {
     echo
 
     # Install AI CLI tools
+    install_codex_cli
     install_claude_code
     install_claude_plugins
+    install_copilot_cli
+    install_have_config
     install_kimi_code
     install_gemini_cli
     install_ralph

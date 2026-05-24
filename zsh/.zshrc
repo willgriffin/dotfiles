@@ -140,11 +140,11 @@ fi
 
 # Dotfiles management
 if [[ -f /etc/os-release ]] && grep -q "^ID=nixos" /etc/os-release; then
-    # NixOS: just pull updates (home-manager manages symlinks)
+    # NixOS: run the installer to pick up new CLI tools and config changes
     alias update-home="cd $HOME/Work/willgriffin/repos/dotfiles && git pull && ./install.sh && cd - > /dev/null"
 else
-    # Non-NixOS: use stow
-    alias update-home="cd $HOME/Work/willgriffin/repos/dotfiles && git pull && stow --restow zsh bash git nushell && cd - > /dev/null"
+    # Non-NixOS: rerun the installer so new packages and AI CLIs are provisioned
+    alias update-home="cd $HOME/Work/willgriffin/repos/dotfiles && git pull && ./install.sh && cd - > /dev/null"
 fi
 
 # ==============================================================================
