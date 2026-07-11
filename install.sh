@@ -51,6 +51,8 @@ detect_platform() {
 
     if [[ "$PLATFORM" == "linux" ]]; then
         if [[ -f /etc/os-release ]]; then
+            # Platform file is present only on Linux.
+            # shellcheck disable=SC1091
             . /etc/os-release
             DISTRO="$ID"
         elif [[ -f /etc/alpine-release ]]; then
@@ -383,40 +385,6 @@ install_claude_code() {
     curl -fsSL https://claude.ai/install.sh | bash
 }
 
-install_claude_plugins() {
-    ensure_agent_paths
-
-    # Ensure claude command is available
-    local claude_cmd=""
-    if [[ -x "$HOME/.claude/local/claude" ]]; then
-        claude_cmd="$HOME/.claude/local/claude"
-    elif command -v claude &> /dev/null; then
-        claude_cmd="claude"
-    else
-        echo "Claude Code not installed, skipping plugins"
-        return 0
-    fi
-
-    # Plugins to install from the official claude-code-plugins marketplace
-    local plugins=(
-        "code-review"
-        "commit-commands"
-        "security-guidance"
-        "frontend-design"
-        "feature-dev"
-    )
-
-    echo "Installing Claude Code plugins..."
-
-    for plugin in "${plugins[@]}"; do
-        local full_name="${plugin}@claude-code-plugins"
-        echo "  Installing plugin: $plugin"
-        echo "y" | "$claude_cmd" plugin install "$full_name" 2>/dev/null || true
-    done
-
-    echo "Claude Code plugins installed"
-}
-
 install_copilot_cli() {
     if ! command -v gh &> /dev/null; then
         echo "GitHub CLI not installed, skipping Copilot CLI"
@@ -597,7 +565,8 @@ stow_packages() {
 # ==============================================================================
 backup_existing() {
 
-    local backup_dir="$HOME/.dotfiles-backup-$(date +%Y%m%d-%H%M%S)"
+    local backup_dir
+    backup_dir="$HOME/.dotfiles-backup-$(date +%Y%m%d-%H%M%S)"
     local need_backup=false
 
     local files_to_check=(
@@ -698,7 +667,6 @@ main() {
     # Install AI CLI tools
     install_codex_cli
     install_claude_code
-    install_claude_plugins
     install_copilot_cli
     install_kimi_code
     install_gemini_cli

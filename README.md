@@ -17,13 +17,8 @@ cd ~/dotfiles
 
 ```
 dotfiles/
-├── agent/
-│   └── manifest.json       # Agent workflow manifest for org bootstraps
-├── .agents/                # Cross-agent workflow defaults
-│   ├── commands/
-│   └── skills/
-├── .codex/                 # Codex defaults
-│   └── AGENTS.md
+├── .agents/
+│   └── project.yaml        # Repository-local policy declaration
 ├── zsh/                    # Zsh configuration
 │   └── .zshrc
 ├── bash/                   # Bash configuration
@@ -52,9 +47,9 @@ stow zsh bash nushell git
 
 To pick up new workstation dependencies later, use `update-home` or rerun `./install.sh`.
 
-Agent workflow definitions live in this repo as generic personal defaults, but
-`install.sh` does not install them directly. Organization bootstraps can consume
-`agent/manifest.json` and layer their own standards over these defaults.
+Agent policy, skills, plugins, and generated harness instructions are installed
+from the private control-plane repository. Dotfiles installs workstation tools
+and shell configuration only.
 
 Audit without mutating packages or links:
 
