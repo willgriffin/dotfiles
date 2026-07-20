@@ -431,6 +431,23 @@ install_gemini_cli() {
     ensure_agent_paths
 }
 
+install_pi_cli() {
+    ensure_agent_paths
+
+    if command -v pi &> /dev/null || [[ -x "$HOME/.npm-global/bin/pi" ]]; then
+        echo "Pi coding agent already installed"
+        return 0
+    fi
+
+    ensure_npm
+
+    echo "Installing Pi coding agent..."
+    mkdir -p "$HOME/.npm-global"
+    # --ignore-scripts per upstream's documented install command (pi.dev)
+    npm install -g --ignore-scripts --prefix "$HOME/.npm-global" @earendil-works/pi-coding-agent
+    ensure_agent_paths
+}
+
 install_kimi_code() {
     if command -v kimi &> /dev/null; then
         echo "Kimi Code already installed"
@@ -652,7 +669,7 @@ main() {
         echo "Dry-run: would install packages, AI CLIs, shell tooling, and stowed dotfiles."
         echo
         echo "Core tools: zsh git curl stow starship zoxide direnv fzf bat eza ripgrep fd jq"
-        echo "AI CLIs: codex claude gemini kimi ralph"
+        echo "AI CLIs: codex claude copilot gemini kimi pi ralph"
         echo "Package mutation, downloads, shell changes, and stow operations skipped."
         echo "Dry-run complete!"
         echo "========================================"
@@ -670,6 +687,7 @@ main() {
     install_copilot_cli
     install_kimi_code
     install_gemini_cli
+    install_pi_cli
     install_ralph
     echo
 

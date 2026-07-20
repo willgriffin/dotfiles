@@ -110,6 +110,10 @@ These files are sourced at the end of the main configs.
 - `repomix` - `npx repomix`
 - `claude` - `~/.claude/local/claude`
 - `codex` - installed with npm into `~/.npm-global/bin`
+- `gemini` - installed with npm into `~/.npm-global/bin`
+- `pi` - `@earendil-works/pi-coding-agent`, installed with npm into `~/.npm-global/bin`
+- `kimi` - installed via the Kimi Code installer
+- `ralph` - cloned to `~/.ralph` with wrappers in `~/.local/bin`
 - `gh copilot` - downloads the GitHub Copilot CLI via GitHub CLI
 - `sops` / `age` / `gnupg` - local encrypted environment tooling where available
 - `rebuild` / `update` - Platform-specific rebuild command
