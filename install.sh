@@ -431,6 +431,23 @@ install_gemini_cli() {
     ensure_agent_paths
 }
 
+install_pi_cli() {
+    ensure_agent_paths
+
+    if command -v pi &> /dev/null || [[ -x "$HOME/.npm-global/bin/pi" ]]; then
+        echo "Pi coding agent already installed"
+        return 0
+    fi
+
+    ensure_npm
+
+    echo "Installing Pi coding agent..."
+    mkdir -p "$HOME/.npm-global"
+    # --ignore-scripts per upstream's documented install command (pi.dev)
+    npm install -g --ignore-scripts --prefix "$HOME/.npm-global" @earendil-works/pi-coding-agent
+    ensure_agent_paths
+}
+
 install_kimi_code() {
     if command -v kimi &> /dev/null; then
         echo "Kimi Code already installed"
@@ -444,67 +461,6 @@ install_kimi_code() {
         echo "Adding chrome-devtools MCP server to Kimi..."
         kimi mcp add --transport stdio chrome-devtools -- npx chrome-devtools-mcp@latest 2>/dev/null || true
     fi
-}
-
-install_ralph() {
-    local ralph_dir="$HOME/.ralph"
-
-    # Check if already installed
-    if [[ -x "$HOME/.local/bin/ralph" ]] && [[ -d "$ralph_dir" ]]; then
-        echo "Ralph already installed"
-        return 0
-    fi
-
-    echo "Installing Ralph (autonomous Claude Code framework)..."
-
-    # Clone or update Ralph
-    if [[ -d "$ralph_dir/.git" ]]; then
-        echo "  Updating Ralph..."
-        git -C "$ralph_dir" pull --quiet
-    else
-        echo "  Cloning Ralph..."
-        git clone --quiet https://github.com/frankbria/ralph-claude-code.git "$ralph_dir"
-    fi
-
-    # Patch shebangs for NixOS compatibility (#!/bin/bash -> #!/usr/bin/env bash)
-    echo "  Patching shebangs for portability..."
-    find "$ralph_dir" -type f -name "*.sh" -exec sed -i.bak 's|^#!/bin/bash|#!/usr/bin/env bash|' {} \;
-    find "$ralph_dir" -type f -name "*.bak" -delete
-
-    # Create ~/.local/bin if needed
-    mkdir -p "$HOME/.local/bin"
-
-    # Create wrapper scripts in ~/.local/bin
-    # ralph - main command
-    cat > "$HOME/.local/bin/ralph" << 'EOF'
-#!/usr/bin/env bash
-exec "$HOME/.ralph/ralph_loop.sh" "$@"
-EOF
-    chmod +x "$HOME/.local/bin/ralph"
-
-    # ralph-monitor
-    cat > "$HOME/.local/bin/ralph-monitor" << 'EOF'
-#!/usr/bin/env bash
-exec "$HOME/.ralph/ralph_monitor.sh" "$@"
-EOF
-    chmod +x "$HOME/.local/bin/ralph-monitor"
-
-    # ralph-setup
-    cat > "$HOME/.local/bin/ralph-setup" << 'EOF'
-#!/usr/bin/env bash
-exec "$HOME/.ralph/setup.sh" "$@"
-EOF
-    chmod +x "$HOME/.local/bin/ralph-setup"
-
-    # ralph-import
-    cat > "$HOME/.local/bin/ralph-import" << 'EOF'
-#!/usr/bin/env bash
-exec "$HOME/.ralph/ralph_import.sh" "$@"
-EOF
-    chmod +x "$HOME/.local/bin/ralph-import"
-
-    echo "Ralph installed successfully!"
-    echo "  Commands: ralph, ralph-monitor, ralph-setup, ralph-import"
 }
 
 install_oh_my_zsh() {
@@ -652,7 +608,7 @@ main() {
         echo "Dry-run: would install packages, AI CLIs, shell tooling, and stowed dotfiles."
         echo
         echo "Core tools: zsh git curl stow starship zoxide direnv fzf bat eza ripgrep fd jq"
-        echo "AI CLIs: codex claude gemini kimi ralph"
+        echo "AI CLIs: codex claude copilot gemini kimi pi"
         echo "Package mutation, downloads, shell changes, and stow operations skipped."
         echo "Dry-run complete!"
         echo "========================================"
@@ -670,7 +626,7 @@ main() {
     install_copilot_cli
     install_kimi_code
     install_gemini_cli
-    install_ralph
+    install_pi_cli
     echo
 
     # Install Oh My Zsh
