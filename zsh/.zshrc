@@ -196,6 +196,93 @@ if [[ -z "$ZELLIJ" && $- == *i* ]] && _is_mosh; then
 fi
 
 # ==============================================================================
+# Claude Code — alternate model providers
+# ==============================================================================
+# Non-shadowing launchers that run the real `claude` binary against an
+# Anthropic-compatible third-party endpoint. Plain `claude` stays on your
+# Anthropic subscription. Provider tokens come from sops via /run/secrets,
+# provisioned by nixos-config (hosts/mac/default.nix -> darwin-rebuild).
+
+# Read a provisioned provider secret, or explain how to provision it.
+_cc_secret() {
+    local f="/run/secrets/cli_keys/$1"
+    if [[ ! -r "$f" ]]; then
+        print -u2 "claude-models: $f not found or unreadable."
+        print -u2 "  Provision it: cd ~/Work/willgriffin/repos/nixos-config && sudo darwin-rebuild switch --flake .#mac"
+        return 1
+    fi
+    cat "$f"
+}
+
+# Z.AI GLM (glm-4.6 / glm-4.5-air)
+claudeglm() {
+    local tok; tok="$(_cc_secret zai_api_key)" || return 1
+    (
+        unset ANTHROPIC_API_KEY
+        export ANTHROPIC_BASE_URL="https://api.z.ai/api/anthropic"
+        export ANTHROPIC_AUTH_TOKEN="$tok"
+        export ANTHROPIC_DEFAULT_OPUS_MODEL="glm-4.6"
+        export ANTHROPIC_DEFAULT_SONNET_MODEL="glm-4.6"
+        export ANTHROPIC_DEFAULT_HAIKU_MODEL="glm-4.5-air"
+        exec claude "$@"
+    )
+}
+
+# Moonshot Kimi for Coding
+claudekimi() {
+    local tok; tok="$(_cc_secret kimi_api_key)" || return 1
+    (
+        unset ANTHROPIC_API_KEY
+        export ANTHROPIC_BASE_URL="https://api.kimi.com/coding/"
+        export ANTHROPIC_AUTH_TOKEN="$tok"
+        export ANTHROPIC_MODEL="kimi-for-coding"
+        export ANTHROPIC_SMALL_FAST_MODEL="kimi-for-coding"
+        exec claude "$@"
+    )
+}
+
+# Qwen (Alibaba token-plan MaaS, Anthropic-compatible)
+claudeqwen() {
+    local tok; tok="$(_cc_secret qwen_api_key)" || return 1
+    (
+        unset ANTHROPIC_API_KEY
+        export ANTHROPIC_BASE_URL="https://token-plan.ap-southeast-1.maas.aliyuncs.com/apps/anthropic"
+        export ANTHROPIC_AUTH_TOKEN="$tok"
+        export ANTHROPIC_MODEL="qwen3.8-max-preview"
+        export ANTHROPIC_SMALL_FAST_MODEL="qwen3.8-max-preview"
+        exec claude "$@"
+    )
+}
+
+# HappyVertical Bifrost gateway (virtual key). Model must be provider-prefixed;
+# override with BIFROST_MODEL=<provider/model>. Requires a provisioned coding vk.
+claudebifrost() {
+    local tok; tok="$(_cc_secret bifrost_virtual_key)" || return 1
+    if [[ "$tok" == REPLACE_ME_* ]]; then
+        print -u2 "claudebifrost: bifrost_virtual_key is still a placeholder."
+        print -u2 "  Provision a coding virtual key in iac/bifrost, store it in sops"
+        print -u2 "  (cli_keys/bifrost_virtual_key), then run darwin-rebuild."
+        return 1
+    fi
+    (
+        unset ANTHROPIC_API_KEY
+        export ANTHROPIC_BASE_URL="https://bifrost.happyvertical.com/anthropic"
+        export ANTHROPIC_AUTH_TOKEN="$tok"
+        export ANTHROPIC_MODEL="${BIFROST_MODEL:-anthropic/claude-sonnet-4-6}"
+        exec claude "$@"
+    )
+}
+
+# List the available launchers.
+claude-models() {
+    print -r -- 'Claude Code model launchers (plain `claude` = Anthropic subscription):'
+    print -r -- '  claudeglm      Z.AI GLM           glm-4.6 / glm-4.5-air'
+    print -r -- '  claudekimi     Moonshot Kimi      kimi-for-coding'
+    print -r -- '  claudeqwen     Qwen (token-plan)  qwen3.8-max-preview'
+    print -r -- '  claudebifrost  Bifrost gateway    ${BIFROST_MODEL:-anthropic/claude-sonnet-4-6}'
+}
+
+# ==============================================================================
 # Local Overrides (machine-specific customizations)
 # ==============================================================================
 # Source local overrides if they exist
