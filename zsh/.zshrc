@@ -290,3 +290,12 @@ claude-models() {
 
 # Added by Antigravity
 export PATH="/Users/will/.antigravity/antigravity/bin:$PATH"
+
+# >>> grok installer >>>
+export PATH="$HOME/.grok/bin:$PATH"
+fpath=(~/.grok/completions/zsh $fpath)
+autoload -Uz compinit && compinit -C
+# <<< grok installer <<<
+
+# Context Forge org memory token (rehydrated from Keychain for terminal sessions)
+export HV_CONTEXTFORGE_MCP_TOKEN="$(security find-generic-password -a "$USER" -s happyvertical-contextforge-codex-mcp -w 2>/dev/null)"
