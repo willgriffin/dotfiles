@@ -176,7 +176,7 @@ install_packages() {
 		arch | manjaro)
 			run_privileged pacman -S --noconfirm "${packages[@]}"
 			run_privileged pacman -S --noconfirm zsh-autosuggestions zsh-syntax-highlighting 2>/dev/null || true
-			run_privileged pacman -S --noconfirm starship zoxide fzf bat eza ripgrep fd jq direnv 2>/dev/null || true
+			run_privileged pacman -S --noconfirm starship zoxide fzf bat eza ripgrep fd jq direnv unzip 2>/dev/null || true
 			# Cloud CLI tools
 			run_privileged pacman -S --noconfirm github-cli aws-cli 2>/dev/null || true
 			install_gcloud
