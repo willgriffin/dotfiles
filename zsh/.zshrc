@@ -299,3 +299,13 @@ autoload -Uz compinit && compinit -C
 
 # Context Forge org memory token (rehydrated from Keychain for terminal sessions)
 export HV_CONTEXTFORGE_MCP_TOKEN="$(security find-generic-password -a "$USER" -s happyvertical-contextforge-codex-mcp -w 2>/dev/null)"
+
+# bun
+export BUN_INSTALL="${BUN_INSTALL:-$HOME/.bun}"
+if [[ -d "$BUN_INSTALL/bin" ]]; then
+    # Move ~/.bun/bin to the front, dropping any earlier (inherited) occurrence
+    path=("$BUN_INSTALL/bin" ${path:#"$BUN_INSTALL/bin"})
+fi
+
+# bun completions
+[ -s "$BUN_INSTALL/_bun" ] && source "$BUN_INSTALL/_bun"

@@ -176,7 +176,7 @@ install_packages() {
 		arch | manjaro)
 			run_privileged pacman -S --noconfirm "${packages[@]}"
 			run_privileged pacman -S --noconfirm zsh-autosuggestions zsh-syntax-highlighting 2>/dev/null || true
-			run_privileged pacman -S --noconfirm starship zoxide fzf bat eza ripgrep fd jq direnv 2>/dev/null || true
+			run_privileged pacman -S --noconfirm starship zoxide fzf bat eza ripgrep fd jq direnv unzip 2>/dev/null || true
 			# Cloud CLI tools
 			run_privileged pacman -S --noconfirm github-cli aws-cli 2>/dev/null || true
 			install_gcloud
@@ -297,6 +297,31 @@ install_gh() {
 	esac
 }
 
+install_bun() {
+	# NixOS manages packages via Nix; prebuilt bun binaries cannot run there
+	if [[ "$DISTRO" == "nixos" ]]; then
+		echo "NixOS detected - bun and omp should be managed by Nix"
+		return 0
+	fi
+
+	export BUN_INSTALL="${BUN_INSTALL:-$HOME/.bun}"
+
+	if [[ -x "$BUN_INSTALL/bin/bun" ]]; then
+		echo "Upgrading bun to latest..."
+		"$BUN_INSTALL/bin/bun" upgrade || echo "bun upgrade failed; continuing"
+	elif command -v bun &>/dev/null; then
+		echo "bun found at $(command -v bun) (externally managed), skipping upgrade"
+	else
+		echo "Installing bun..."
+		curl -fsSL https://bun.sh/install | bash || echo "bun install failed; install manually from https://bun.sh"
+	fi
+
+	# Make bun available for the rest of this install run
+	if [[ -d "$BUN_INSTALL/bin" ]] && [[ ":$PATH:" != *":$BUN_INSTALL/bin:"* ]]; then
+		export PATH="$BUN_INSTALL/bin:$PATH"
+	fi
+}
+
 ensure_npm() {
 	if command -v npm &>/dev/null; then
 		return 0
@@ -360,6 +385,20 @@ ensure_agent_paths() {
 # ==============================================================================
 # AI CLI Tools
 # ==============================================================================
+install_omp() {
+	if ! command -v bun &>/dev/null; then
+		echo "bun not available, skipping omp (install bun first)"
+		return 0
+	fi
+
+	if command -v omp &>/dev/null; then
+		echo "Upgrading omp to latest..."
+	else
+		echo "Installing omp (oh-my-pi)..."
+	fi
+	bun install -g @oh-my-pi/pi-coding-agent@latest || echo "omp install failed; retry manually: bun install -g @oh-my-pi/pi-coding-agent@latest"
+}
+
 install_codex_cli() {
 	ensure_agent_paths
 
@@ -607,8 +646,8 @@ main() {
 	if [[ "$DRY_RUN" -eq 1 ]]; then
 		echo "Dry-run: would install packages, AI CLIs, shell tooling, and stowed dotfiles."
 		echo
-		echo "Core tools: zsh git curl stow starship zoxide direnv fzf bat eza ripgrep fd jq"
-		echo "AI CLIs: codex claude copilot gemini kimi pi"
+		echo "Core tools: zsh git curl stow starship zoxide direnv fzf bat eza ripgrep fd jq bun"
+		echo "AI CLIs: omp codex claude copilot gemini kimi pi"
 		echo "Package mutation, downloads, shell changes, and stow operations skipped."
 		echo "Dry-run complete!"
 		echo "========================================"
@@ -618,9 +657,11 @@ main() {
 	# Install packages
 	install_packages
 	install_sops_tools
+	install_bun
 	echo
 
 	# Install AI CLI tools
+	install_omp
 	install_codex_cli
 	install_claude_code
 	install_copilot_cli
