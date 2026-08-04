@@ -107,6 +107,8 @@ These files are sourced at the end of the main configs.
 - `gl` - `git log --oneline --graph`
 
 ### Development
+- `bun` - JavaScript runtime, installed via https://bun.sh into `~/.bun/bin`
+- `omp` - `@oh-my-pi/pi-coding-agent` harness, installed with bun into `~/.bun/bin`
 - `repomix` - `npx repomix`
 - `claude` - `~/.claude/local/claude`
 - `codex` - installed with npm into `~/.npm-global/bin`
