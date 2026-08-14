@@ -72,9 +72,20 @@ if ($npm_bin not-in $env.PATH) {
 # Tool Initialization
 # ==============================================================================
 # Initialize fnm (Fast Node Manager) if available
+let fnm_paths = [
+    ($env.HOME | path join ".fnm")
+    (($env.XDG_DATA_HOME? | default ($env.HOME | path join ".local/share")) | path join "fnm")
+    ($env.HOME | path join "Library/Application Support/fnm")
+]
+for fnm_path in $fnm_paths {
+    if (($fnm_path | path exists) and ($fnm_path not-in $env.PATH)) {
+        $env.PATH = ($env.PATH | prepend $fnm_path)
+    }
+}
 if (which fnm | is-not-empty) {
-    fnm env --shell nushell | save -f ~/.fnm-env.nu
-    source ~/.fnm-env.nu
+    let fnm_env = (fnm env --json | from json)
+    load-env $fnm_env
+    $env.PATH = ($env.PATH | prepend ($env.FNM_MULTISHELL_PATH | path join "bin"))
 }
 
 # Initialize zoxide if available
@@ -83,18 +94,19 @@ if (which zoxide | is-not-empty) {
     source ~/.zoxide.nu
 }
 
-# Initialize direnv if available
-if (which direnv | is-not-empty) {
-    $env.config = ($env.config? | default {} | merge {
-        hooks: {
-            pre_prompt: [{ ||
-                if (which direnv | is-not-empty) {
-                    direnv export json | from json | default {} | load-env
-                }
-            }]
-        }
-    })
-}
+# Keep fnm project version files and direnv synchronized before each prompt.
+$env.config = ($env.config? | default {} | merge {
+    hooks: {
+        pre_prompt: [{ ||
+            if (which fnm | is-not-empty) {
+                fnm use --silent-if-unchanged | ignore
+            }
+            if (which direnv | is-not-empty) {
+                direnv export json | from json | default {} | load-env
+            }
+        }]
+    }
+})
 
 # Source starship init if it was created in env.nu
 let starship_init = ($env.HOME | path join ".cache/starship/init.nu")

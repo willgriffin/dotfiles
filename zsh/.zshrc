@@ -156,6 +156,16 @@ fi
 # Tool Initialization
 # ==============================================================================
 # Initialize fnm (Fast Node Manager) if available
+export BASH_ENV="${BASH_ENV:-$HOME/.bash_env}"
+for fnm_path in \
+    "$HOME/.fnm" \
+    "${XDG_DATA_HOME:-$HOME/.local/share}/fnm" \
+    "$HOME/Library/Application Support/fnm"; do
+    if [[ -x "$fnm_path/fnm" ]]; then
+        export PATH="$fnm_path:$PATH"
+        break
+    fi
+done
 if command -v fnm &> /dev/null; then
     eval "$(fnm env --use-on-cd)"
 fi

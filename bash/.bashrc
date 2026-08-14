@@ -32,6 +32,10 @@ export PATH="$HOME/.npm-global/bin:$PATH"
 export PNPM_HOME="$HOME/.local/share/pnpm"
 export PATH="$PNPM_HOME:$PATH"
 
+# Ensure child and non-interactive Bash processes select the same Node runtime.
+export BASH_ENV="${BASH_ENV:-$HOME/.bash_env}"
+[[ -f "$BASH_ENV" ]] && source "$BASH_ENV"
+
 # ==============================================================================
 # Platform-Specific Configuration
 # ==============================================================================
