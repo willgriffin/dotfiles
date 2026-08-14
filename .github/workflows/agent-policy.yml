@@ -13,6 +13,7 @@ on:
         type: number
 
 permissions:
+  actions: read
   contents: read
   issues: read
   pull-requests: read
@@ -225,6 +226,7 @@ jobs:
           POLICY_ARTIFACT: ${{ env.HV_POLICY_ARTIFACT }}
           EVENT_NAME: ${{ github.event_name }}
           EVENT_ACTION: ${{ github.event.action }}
+          HV_AGENT_LOCAL_LIFECYCLE: "true"
           PR_NUMBER: ${{ inputs.pr_number || github.event.pull_request.number }}
           MERGE_GROUP_HEAD_SHA: ${{ github.event.merge_group.head_sha }}
           MERGE_GROUP_HEAD_REF: ${{ github.event.merge_group.head_ref }}
@@ -238,7 +240,7 @@ jobs:
           "$HV_POLICY_DIR/scripts/hv-agent-lifecycle-prs" > "$numbers_file"
           while IFS= read -r number; do
             if ! python3 "$HV_POLICY_DIR/scripts/hv-agent" check-pr "$number"; then
-              echo "ERROR $HV_POLICY_IDENTITY from $POLICY_ARTIFACT rejected PR #$number; correct canonical claim/PR state, then rerun the organization-required workflow execution; a repository-local lifecycle-only dispatch is not protected merge authority and draft toggles are invalid" >&2
+              echo "ERROR $HV_POLICY_IDENTITY from $POLICY_ARTIFACT rejected PR #$number; correct canonical claim/PR state, then rerun lifecycle for this exact head; draft toggles are invalid" >&2
               exit 1
             fi
           done < "$numbers_file"
