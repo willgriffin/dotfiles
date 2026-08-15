@@ -7,6 +7,9 @@ set -e
 
 DOTFILES_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DRY_RUN=0
+NODE_MAJOR_VERSION=26
+FNM_VERSION=1.39.0
+FNM_INSTALLER_COMMIT=d2555b46362ad8888213b76822631561371ce199
 
 usage() {
 	cat <<'EOF'
@@ -322,46 +325,66 @@ install_bun() {
 	fi
 }
 
-ensure_npm() {
-	if command -v npm &>/dev/null; then
+install_nodejs() {
+	if [[ "$DISTRO" == "nixos" ]]; then
+		echo "NixOS detected - Node.js $NODE_MAJOR_VERSION should be managed by nixos-config"
 		return 0
 	fi
 
-	echo "Installing Node.js and npm..."
-	case "$PLATFORM" in
-	macos)
-		brew install node
-		;;
-	linux)
-		case "$DISTRO" in
-		ubuntu | debian | pop)
-			run_privileged apt-get update
-			run_privileged apt-get install -y nodejs npm
+	if ! command -v fnm &>/dev/null; then
+		echo "Installing fnm..."
+		case "$PLATFORM" in
+		macos)
+			brew install fnm
 			;;
-		fedora | rhel | centos)
-			run_privileged dnf install -y nodejs npm
-			;;
-		alpine)
-			run_privileged apk add nodejs npm
-			;;
-		arch | manjaro)
-			run_privileged pacman -S --noconfirm nodejs npm
-			;;
-		nixos)
-			echo "NixOS detected - Node.js and npm should be managed by Nix"
-			return 1
+		linux)
+			curl -fsSL \
+				"https://raw.githubusercontent.com/Schniz/fnm/$FNM_INSTALLER_COMMIT/.ci/install.sh" | \
+				bash -s -- --skip-shell --release "v$FNM_VERSION"
 			;;
 		*)
-			echo "Please install Node.js and npm manually"
+			echo "Please install fnm manually"
 			return 1
 			;;
 		esac
-		;;
-	*)
-		echo "Please install Node.js and npm manually"
+	fi
+
+	# The fnm installer does not mutate PATH when --skip-shell is used.
+	local fnm_dir
+	for fnm_dir in \
+		"$HOME/.fnm" \
+		"${XDG_DATA_HOME:-$HOME/.local/share}/fnm" \
+		"$HOME/Library/Application Support/fnm"; do
+		if [[ -x "$fnm_dir/fnm" && ":$PATH:" != *":$fnm_dir:"* ]]; then
+			export PATH="$fnm_dir:$PATH"
+		fi
+	done
+
+	if ! command -v fnm &>/dev/null; then
+		echo "fnm is not available after installation"
 		return 1
-		;;
-	esac
+	fi
+
+	eval "$(fnm env --shell bash)"
+	echo "Installing and selecting Node.js $NODE_MAJOR_VERSION..."
+	fnm install "$NODE_MAJOR_VERSION"
+	fnm default "$NODE_MAJOR_VERSION"
+	fnm use "$NODE_MAJOR_VERSION"
+
+	if [[ "$(node --version 2>/dev/null)" != "v$NODE_MAJOR_VERSION."* ]]; then
+		echo "Node.js $NODE_MAJOR_VERSION is not active after fnm setup"
+		return 1
+	fi
+}
+
+ensure_npm() {
+	if command -v npm &>/dev/null && {
+		[[ "$DISTRO" == "nixos" ]] || [[ "$(node --version 2>/dev/null)" == "v$NODE_MAJOR_VERSION."* ]]
+	}; then
+		return 0
+	fi
+
+	install_nodejs
 
 	if ! command -v npm &>/dev/null; then
 		echo "npm still not available after install attempt"
@@ -646,7 +669,7 @@ main() {
 	if [[ "$DRY_RUN" -eq 1 ]]; then
 		echo "Dry-run: would install packages, AI CLIs, shell tooling, and stowed dotfiles."
 		echo
-		echo "Core tools: zsh git curl stow starship zoxide direnv fzf bat eza ripgrep fd jq bun"
+		echo "Core tools: zsh git curl stow starship zoxide direnv fzf bat eza ripgrep fd jq bun node@$NODE_MAJOR_VERSION"
 		echo "AI CLIs: omp codex claude copilot gemini kimi pi"
 		echo "Package mutation, downloads, shell changes, and stow operations skipped."
 		echo "Dry-run complete!"
@@ -657,6 +680,7 @@ main() {
 	# Install packages
 	install_packages
 	install_sops_tools
+	install_nodejs
 	install_bun
 	echo
 

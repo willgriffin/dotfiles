@@ -107,6 +107,7 @@ These files are sourced at the end of the main configs.
 - `gl` - `git log --oneline --graph`
 
 ### Development
+- `node` / `npm` - Node.js 26, installed and selected with `fnm` on non-Nix systems
 - `bun` - JavaScript runtime, installed via https://bun.sh into `~/.bun/bin`
 - `omp` - `@oh-my-pi/pi-coding-agent` harness, installed with bun into `~/.bun/bin`
 - `repomix` - `npx repomix`
