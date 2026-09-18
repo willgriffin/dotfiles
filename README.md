@@ -51,6 +51,11 @@ Agent policy, skills, plugins, and generated harness instructions are installed
 from the private control-plane repository. Dotfiles installs workstation tools
 and shell configuration only.
 
+`terminal-browser` ships its own agent skill; the installer links it into
+`~/.agents/skills`, which omp discovers, so a session can open a browser in a
+split pane (`terminal-browser open --split right <url>`) and drive the open tab
+with `terminal-browser action -- <agent-browser command>`.
+
 Audit without mutating packages or links:
 
 ```bash
@@ -116,6 +121,7 @@ These files are sourced at the end of the main configs.
 - `gemini` - installed with npm into `~/.npm-global/bin`
 - `pi` - `@earendil-works/pi-coding-agent`, installed with npm into `~/.npm-global/bin`
 - `kimi` - installed via the Kimi Code installer
+- `terminal-browser` - real browser rendered inside a terminal pane, installed with the Homebrew cask on macOS and the upstream installer on Linux; on NixOS it needs `nix-ld` (or an FHS wrapper) because the release is a prebuilt Electron bundle and it is not published to npm
 - `gh copilot` - downloads the GitHub Copilot CLI via GitHub CLI
 - `sops` / `age` / `gnupg` - local encrypted environment tooling where available
 - `rebuild` / `update` - Platform-specific rebuild command
