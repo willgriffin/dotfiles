@@ -525,6 +525,41 @@ install_kimi_code() {
 	fi
 }
 
+install_terminal_browser() {
+	# NixOS: nothing to install from nixpkgs and no npm package; the release is a
+	# prebuilt Electron bundle that needs nix-ld (or an FHS wrapper) plus libgtk3,
+	# libnss, libgbm, and libasound to run at all.
+	if [[ "$DISTRO" == "nixos" ]]; then
+		echo "NixOS detected - terminal-browser needs nix-ld (or an FHS wrapper); see README"
+		return 0
+	fi
+
+	if command -v terminal-browser &>/dev/null || [[ -x "$HOME/.local/bin/terminal-browser" ]]; then
+		echo "terminal-browser already installed"
+		return 0
+	fi
+
+	echo "Installing terminal-browser..."
+	case "$PLATFORM" in
+	macos)
+		brew install --cask terminal-browser 2>/dev/null || echo "terminal-browser install failed; retry manually: brew install --cask terminal-browser"
+		;;
+	linux)
+		curl -fsSL https://terminal-browser.sh/install | bash || echo "terminal-browser install failed; retry manually: curl -fsSL https://terminal-browser.sh/install | bash"
+		;;
+	*)
+		echo "Unsupported platform for terminal-browser; see https://github.com/zenbu-labs/terminal-browser"
+		return 0
+		;;
+	esac
+
+	# Links the terminal-browser skill into the shared ~/.agents/skills directory
+	# (read by omp, claude, codex, cursor, and gemini) and configures editor images.
+	if command -v terminal-browser &>/dev/null; then
+		terminal-browser setup || echo "terminal-browser setup failed; run 'terminal-browser setup' manually"
+	fi
+}
+
 install_oh_my_zsh() {
 	if [[ -d "$HOME/.oh-my-zsh" ]]; then
 		echo "Oh My Zsh already installed"
@@ -671,6 +706,7 @@ main() {
 		echo
 		echo "Core tools: zsh git curl stow starship zoxide direnv fzf bat eza ripgrep fd jq bun node@$NODE_MAJOR_VERSION"
 		echo "AI CLIs: omp codex claude copilot gemini kimi pi"
+		echo "Terminal tooling: terminal-browser"
 		echo "Package mutation, downloads, shell changes, and stow operations skipped."
 		echo "Dry-run complete!"
 		echo "========================================"
@@ -692,6 +728,7 @@ main() {
 	install_kimi_code
 	install_gemini_cli
 	install_pi_cli
+	install_terminal_browser
 	echo
 
 	# Install Oh My Zsh
