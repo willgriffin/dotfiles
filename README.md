@@ -122,6 +122,7 @@ These files are sourced at the end of the main configs.
 - `pi` - `@earendil-works/pi-coding-agent`, installed with npm into `~/.npm-global/bin`
 - `kimi` - installed via the Kimi Code installer
 - `terminal-browser` - real browser rendered inside a terminal pane, installed with the Homebrew cask on macOS and the upstream installer on Linux; on NixOS it needs `nix-ld` (or an FHS wrapper) because the release is a prebuilt Electron bundle and it is not published to npm
+- `herdr` - terminal workspace manager for coding agents, installed to `~/.local/bin` with the upstream installer (`curl -fsSL https://herdr.dev/install.sh | sh`); skipped on NixOS
 - `gh copilot` - downloads the GitHub Copilot CLI via GitHub CLI
 - `sops` / `age` / `gnupg` - local encrypted environment tooling where available
 - `rebuild` / `update` - Platform-specific rebuild command
