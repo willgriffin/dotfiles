@@ -575,7 +575,8 @@ install_herdr() {
 
 	# The upstream installer verifies the release checksum and installs to ~/.local/bin.
 	echo "Installing herdr..."
-	curl -fsSL https://herdr.dev/install.sh | sh || echo "herdr install failed; retry manually: curl -fsSL https://herdr.dev/install.sh | sh"
+	# pipefail so a failed download is not masked by sh succeeding on empty input.
+	(set -o pipefail && curl -fsSL https://herdr.dev/install.sh | sh) || echo "herdr install failed; retry manually: curl -fsSL https://herdr.dev/install.sh | sh"
 }
 
 install_oh_my_zsh() {
