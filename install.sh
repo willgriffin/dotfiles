@@ -560,6 +560,25 @@ install_terminal_browser() {
 	fi
 }
 
+install_herdr() {
+	# NixOS: no nixpkgs package; the release is a prebuilt binary that may need
+	# nix-ld, so leave it to the Nix config rather than dropping it in ~/.local/bin.
+	if [[ "$DISTRO" == "nixos" ]]; then
+		echo "NixOS detected - skipping herdr (prebuilt binary; install manually: curl -fsSL https://herdr.dev/install.sh | sh)"
+		return 0
+	fi
+
+	if command -v herdr &>/dev/null || [[ -x "$HOME/.local/bin/herdr" ]]; then
+		echo "herdr already installed"
+		return 0
+	fi
+
+	# The upstream installer verifies the release checksum and installs to ~/.local/bin.
+	echo "Installing herdr..."
+	# pipefail so a failed download is not masked by sh succeeding on empty input.
+	(set -o pipefail && curl -fsSL https://herdr.dev/install.sh | sh) || echo "herdr install failed; retry manually: curl -fsSL https://herdr.dev/install.sh | sh"
+}
+
 install_oh_my_zsh() {
 	if [[ -d "$HOME/.oh-my-zsh" ]]; then
 		echo "Oh My Zsh already installed"
@@ -706,7 +725,7 @@ main() {
 		echo
 		echo "Core tools: zsh git curl stow starship zoxide direnv fzf bat eza ripgrep fd jq bun node@$NODE_MAJOR_VERSION"
 		echo "AI CLIs: omp codex claude copilot gemini kimi pi"
-		echo "Terminal tooling: terminal-browser"
+		echo "Terminal tooling: terminal-browser herdr"
 		echo "Package mutation, downloads, shell changes, and stow operations skipped."
 		echo "Dry-run complete!"
 		echo "========================================"
@@ -729,6 +748,7 @@ main() {
 	install_gemini_cli
 	install_pi_cli
 	install_terminal_browser
+	install_herdr
 	echo
 
 	# Install Oh My Zsh
